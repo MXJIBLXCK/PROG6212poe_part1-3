@@ -1,4 +1,3 @@
-cat << 'EOF' > docs/API_Endpoint_Plan.md
 # RaceDay - API Endpoint Specification Plan
 
 **System Overview:** RaceDay Event Management System RESTful API Architecture  
@@ -7,32 +6,14 @@ cat << 'EOF' > docs/API_Endpoint_Plan.md
 
 ---
 
-## 1. Architectural Strategy & Conventions
+## 1. Overview & Architectural Conventions
 
-The RaceDay API follows strict RESTful design principles, structured JSON payload standards, and HTTP response code conventions.
+This document outlines all RESTful API endpoints for the RaceDay Event Management System. All endpoints reside under the base route `/api/v1/`.
 
-### Base URL Structure
-- **Development:** `https://localhost:7123/api/v1`
-- **Production:** `https://api.raceday.co.za/api/v1`
-
-### Global Standard Headers
-| Header Name | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| `Content-Type` | String | Yes | `application/json` |
-| `Accept` | String | Yes | `application/json` |
-| `Authorization` | String | Conditional | `Bearer <JWT_TOKEN>` (Required for protected endpoints) |
+* **Global Content-Type:** `application/json`
+* **Authentication Standard:** JSON Web Token (JWT) sent via `Authorization: Bearer <TOKEN>` header.
+* **Standard Response Envelope:**
+  * Success: `{ "success": true, "statusCode": int, "message": "string", "data": {} }`
+  * Error: `{ "success": false, "statusCode": int, "message": "string", "errors": [] }`
 
 ---
-
-## 2. Global HTTP Response Codes & Error Envelope
-
-All API responses return a standardized wrapper payload.
-
-### Standard Success Response (HTTP 200 / 201)
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "message": "Operation completed successfully.",
-  "data": {}
-}
