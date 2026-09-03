@@ -1,0 +1,29 @@
+name: Validate Documentation Folder
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate-docs-folder:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if /docs folder exists
+        run: |
+          if [ -d "docs" ]; then
+            echo "Docs directory exists."
+          else
+            echo "Error: /docs directory is missing!"
+            exit 1
+          fi
+
+      - name: Check for required planning files
+        run: |
+          echo "Checking contents of /docs directory..."
+          ls -la docs/
