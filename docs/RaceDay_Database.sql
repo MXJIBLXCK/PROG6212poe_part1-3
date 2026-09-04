@@ -148,3 +148,17 @@ INSERT INTO Results (CategoryId, ParticipantId, FinishTimeSeconds, Position) VAL
 (1, 3, 5400, 1), -- 1h 30m
 (1, 4, 6120, 2); -- 1h 42m
 GO
+
+-- View 1: Event Summary Leaderboard
+CREATE VIEW vw_EventLeaderboard AS
+SELECT 
+    e.EventName,
+    c.CategoryName,
+    u.FullName AS ParticipantName,
+    r.FinishTimeSeconds,
+    r.Position
+FROM Results r
+JOIN Categories c ON r.CategoryId = c.CategoryId
+JOIN Events e ON c.EventId = e.EventId
+JOIN Users u ON r.ParticipantId = u.UserId;
+GO
