@@ -134,3 +134,17 @@ INSERT INTO Categories (EventId, CategoryName, DistanceKm, EntryFee, MaxParticip
 (2, '5km Fun Run', 5.00, 80.00, 500),
 (3, '50km Ultra Challenge', 50.00, 600.00, 1500);
 GO
+
+-- Seed 5: Enrolments
+INSERT INTO Enrolments (CategoryId, ParticipantId, PaymentStatus) VALUES
+(1, 3, 'Confirmed'),
+(1, 4, 'Confirmed'),
+(2, 5, 'Confirmed'),
+(3, 3, 'Confirmed');
+GO
+
+-- Seed 6: Results
+INSERT INTO Results (CategoryId, ParticipantId, FinishTimeSeconds, Position) VALUES
+(1, 3, 5400, 1), -- 1h 30m
+(1, 4, 6120, 2); -- 1h 42m
+GO
