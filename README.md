@@ -30,4 +30,4 @@ RaceDay is a full-stack event management platform designed specifically for the 
 ![CI Build Status](../../workflows/Validate%20Documentation%20Folder/badge.svg)
 
 ## Video Presentation
-*Link to unlisted YouTube presentation will be updated here.*
+https://youtu.be/Ho35uJwoBOU
