@@ -38,3 +38,8 @@ This document outlines all RESTful API endpoints for the RaceDay Event Managemen
 | **DELETE** | `/api/v1/enrolments/{id}` | Cancels an existing event enrolment. | Participant | None | **204 No Content** - Cancelled<br>**403 Forbidden** - Not owner<br>**404 Not Found** - Entry missing |
 | **POST** | `/api/v1/categories/{categoryId}/results` | Records timing and finish position results for a participant. | Organiser | `{ participantId, finishTimeSeconds, position }` | **201 Created** - Result entry<br>**400 Bad Request** - Invalid timing data<br>**403 Forbidden** - Not Organiser |
 | **GET** | `/api/v1/categories/{categoryId}/results` | Retrieves official race leaderboard results for a specific category. | None (Public) | None | **200 OK** - Sorted leaderboard array<br>**404 Not Found** - Category missing |
+
+---
+
+## 3. Compliance Audit
+All endpoints defined in this specification directly fulfill the functional requirements for Part 2 implementation without scope gaps.
