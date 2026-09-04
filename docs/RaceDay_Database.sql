@@ -102,3 +102,19 @@ CREATE TABLE Results (
     CONSTRAINT UQ_Result_Participant UNIQUE (CategoryId, ParticipantId)
 );
 GO
+
+-- Seed 1: Users (2 Organisers, 3 Participants)
+INSERT INTO Users (Email, PasswordHash, FullName, Role) VALUES
+('organiser1@raceday.co.za', 'hashed_pwd_1', 'Nick Fury', 'Organiser'),
+('organiser2@raceday.co.za', 'hashed_pwd_2', 'Phillip Coulson', 'Organiser'),
+('participant1@gmail.com', 'hashed_pwd_3', 'Tony Stark', 'Participant'),
+('participant2@yahoo.com', 'hashed_pwd_4', 'Thor Odinsson', 'Participant'),
+('participant3@outlook.com', 'hashed_pwd_5', 'Steve Rogers', 'Participant');
+GO
+
+-- Seed 2: UserProfiles
+INSERT INTO UserProfiles (UserId, PhoneNumber, EmergencyContactName, EmergencyContactPhone, RunningClub) VALUES
+(3, '0821234567', 'Pepper Potts', '0829876543', 'Soweto Striders'),
+(4, '0712345678', 'Loki Odinsson', '0719876543', 'Pretoria Athletics Club'),
+(5, '0833456789', 'Peggy Carter', '0838765432', 'Kempton Park Striders');
+GO
