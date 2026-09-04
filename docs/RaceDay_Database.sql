@@ -118,3 +118,19 @@ INSERT INTO UserProfiles (UserId, PhoneNumber, EmergencyContactName, EmergencyCo
 (4, '0712345678', 'Loki Odinsson', '0719876543', 'Pretoria Athletics Club'),
 (5, '0833456789', 'Peggy Carter', '0838765432', 'Kempton Park Striders');
 GO
+
+-- Seed 3: Events (3 Race Events)
+INSERT INTO Events (OrganiserId, EventName, Description, EventDate, Location) VALUES
+(1, 'Soweto Half Marathon 2026', 'Annual road race through historical Soweto landmarks.', '2026-11-15 06:00:00', 'Soweto Stadium, Johannesburg'),
+(1, 'Gauteng Trail Series', 'Off-road trail run through scenic nature reserves.', '2026-12-05 07:00:00', 'Cradle of Humankind, Krugersdorp'),
+(2, 'Cape Town Coastal Ultra', 'Scenic oceanfront endurance run.', '2027-02-20 05:30:00', 'Green Point Park, Cape Town');
+GO
+
+-- Seed 4: Categories
+INSERT INTO Categories (EventId, CategoryName, DistanceKm, EntryFee, MaxParticipants) VALUES
+(1, '21km Half Marathon', 21.10, 250.00, 5000),
+(1, '10km Road Race', 10.00, 150.00, 3000),
+(2, '15km Mountain Trail', 15.00, 200.00, 800),
+(2, '5km Fun Run', 5.00, 80.00, 500),
+(3, '50km Ultra Challenge', 50.00, 600.00, 1500);
+GO
