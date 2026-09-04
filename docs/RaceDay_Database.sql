@@ -43,3 +43,30 @@ CREATE TABLE UserProfiles (
         REFERENCES Users(UserId) ON DELETE CASCADE
 );
 GO
+
+-- 3. Events Table
+CREATE TABLE Events (
+    EventId INT IDENTITY(1,1) PRIMARY KEY,
+    OrganiserId INT NOT NULL,
+    EventName NVARCHAR(150) NOT NULL,
+    Description NVARCHAR(MAX) NULL,
+    EventDate DATETIME2 NOT NULL,
+    Location NVARCHAR(200) NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    CONSTRAINT FK_Events_Users FOREIGN KEY (OrganiserId) 
+        REFERENCES Users(UserId)
+);
+GO
+
+-- 4. Categories Table
+CREATE TABLE Categories (
+    CategoryId INT IDENTITY(1,1) PRIMARY KEY,
+    EventId INT NOT NULL,
+    CategoryName NVARCHAR(100) NOT NULL,
+    DistanceKm DECIMAL(5,2) NOT NULL CHECK (DistanceKm > 0),
+    EntryFee DECIMAL(10,2) NOT NULL CHECK (EntryFee >= 0),
+    MaxParticipants INT NOT NULL CHECK (MaxParticipants > 0),
+    CONSTRAINT FK_Categories_Events FOREIGN KEY (EventId) 
+        REFERENCES Events(EventId) ON DELETE CASCADE
+);
+GO
