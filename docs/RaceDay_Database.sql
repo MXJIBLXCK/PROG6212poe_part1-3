@@ -70,3 +70,35 @@ CREATE TABLE Categories (
         REFERENCES Events(EventId) ON DELETE CASCADE
 );
 GO
+
+-- 5. Enrolments Table
+CREATE TABLE Enrolments (
+    EnrolmentId INT IDENTITY(1,1) PRIMARY KEY,
+    CategoryId INT NOT NULL,
+    ParticipantId INT NOT NULL,
+    EnrolmentDate DATETIME2 DEFAULT GETDATE() NOT NULL,
+    PaymentStatus NVARCHAR(20) DEFAULT 'Confirmed' NOT NULL 
+        CHECK (PaymentStatus IN ('Pending', 'Confirmed', 'Cancelled')),
+    CONSTRAINT FK_Enrolments_Categories FOREIGN KEY (CategoryId) 
+        REFERENCES Categories(CategoryId),
+    CONSTRAINT FK_Enrolments_Users FOREIGN KEY (ParticipantId) 
+        REFERENCES Users(UserId),
+    CONSTRAINT UQ_Participant_Category UNIQUE (CategoryId, ParticipantId)
+);
+GO
+
+-- 6. Results Table
+CREATE TABLE Results (
+    ResultId INT IDENTITY(1,1) PRIMARY KEY,
+    CategoryId INT NOT NULL,
+    ParticipantId INT NOT NULL,
+    FinishTimeSeconds INT NOT NULL CHECK (FinishTimeSeconds > 0),
+    Position INT NULL,
+    RecordedAt DATETIME2 DEFAULT GETDATE() NOT NULL,
+    CONSTRAINT FK_Results_Categories FOREIGN KEY (CategoryId) 
+        REFERENCES Categories(CategoryId),
+    CONSTRAINT FK_Results_Users FOREIGN KEY (ParticipantId) 
+        REFERENCES Users(UserId),
+    CONSTRAINT UQ_Result_Participant UNIQUE (CategoryId, ParticipantId)
+);
+GO
