@@ -47,6 +47,26 @@ namespace RaceDay_EventMS.Controllers
         [HttpPost]
         public async Task<ActionResult<Enrolment>> PostEnrolment(Enrolment enrolment)
         {
+            // 1. Find the Category to check max participants and get its details
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryId == enrolment.CategoryId);
+
+            if (category == null)
+            {
+                return BadRequest(new { message = "The specified category does not exist." });
+            }
+
+            // 2. Count current enrolments for this category
+            var currentEnrolmentCount = await _context.Enrolments
+                .CountAsync(e => e.CategoryId == enrolment.CategoryId);
+
+            // 3. Validate participant limit
+            if (currentEnrolmentCount >= category.MaxParticipants)
+            {
+                return BadRequest(new { message = $"Registration failed. This category has reached its maximum capacity of {category.MaxParticipants} participants." });
+            }
+
+            // 4. If under limit, proceed with saving the enrolment
             _context.Enrolments.Add(enrolment);
             await _context.SaveChangesAsync();
 
