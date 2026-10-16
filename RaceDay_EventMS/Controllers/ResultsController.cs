@@ -19,7 +19,13 @@ namespace RaceDay_EventMS.Controllers
         }
 
         // GET: api/Results (Authenticated users can view all results)
+        /// <summary>
+        /// Retrieves all event results.
+        /// To access this endpoint, the user must be authenticated.
+        /// </summary>
         [HttpGet]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<IEnumerable<Result>>> GetResults()
         {
             return await _context.Results
