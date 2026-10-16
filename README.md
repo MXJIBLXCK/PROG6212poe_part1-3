@@ -71,7 +71,9 @@ Project Structure
 
     docs/ - System architecture documentation, ERD diagrams, and database initialization scripts.
 
-CI/CD Status
+ ## CI/CD Status
+
+![CI Build Status](../../workflows/Validate%20Documentation%20Folder/badge.svg) 
 Video Presentation
 
     Part 1 Walkthrough: Watch on YouTube
