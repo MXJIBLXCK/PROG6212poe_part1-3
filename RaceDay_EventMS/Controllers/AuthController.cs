@@ -23,6 +23,11 @@ namespace RaceDay_EventMS.Controllers
             _configuration = configuration;
         }
 
+        /// <summary>
+        /// Registers a new user with a specified role (Participant or Organiser).
+        /// </summary>
+        /// <param name="model">The registration details including email, password, and role.</param>
+        /// <returns>An asynchronous operation that returns an <see cref="IActionResult"/> indicating the result of the registration attempt.</returns>
         // POST: api/Auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
@@ -53,7 +58,12 @@ namespace RaceDay_EventMS.Controllers
 
             return Ok(new { message = "User registered successfully." });
         }
-
+        
+        /// <summary>
+        /// Authenticates a user and generates a JWT token.
+        /// </summary>
+        /// <param name="model">The login details including email and password.</param>
+        /// <returns>An asynchronous operation that returns an <see cref="IActionResult"/> containing the JWT token and user role if authentication is successful.</returns>
         // POST: api/Auth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
