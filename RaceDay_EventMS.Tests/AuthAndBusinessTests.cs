@@ -5,8 +5,17 @@ using Xunit;
 
 namespace RaceDay_EventMS.Tests
 {
+
+    /// <summary>
+    /// Integration and unit test suite for core authentication and business logic.
+    /// Uses Entity Framework Core InMemory database fixtures.
+    /// </summary>
     public class AuthAndBusinessTests
     {
+
+        /// <summary>
+        /// Tests that a user is created with the expected role and email persistence.
+        /// </summary>
         [Fact]
         public async Task UserRegistration_StoresCorrectRoleAndEmail()
         {
