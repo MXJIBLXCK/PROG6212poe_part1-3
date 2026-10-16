@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RaceDay_EventMS.Data;
 using RaceDay_EventMS.Models;
@@ -16,7 +17,7 @@ namespace RaceDay_EventMS.Controllers
             _context = context;
         }
 
-        // GET: api/Events
+        // GET: api/Events (Public - anyone can view events)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Event>>> GetEvents()
         {
@@ -25,7 +26,7 @@ namespace RaceDay_EventMS.Controllers
                 .ToListAsync();
         }
 
-        // GET: api/Events/5
+        // GET: api/Events/5 (Public)
         [HttpGet("{id}")]
         public async Task<ActionResult<Event>> GetEvent(int id)
         {
@@ -41,8 +42,9 @@ namespace RaceDay_EventMS.Controllers
             return eventItem;
         }
 
-        // POST: api/Events
+        // POST: api/Events (Only Organisers can create events)
         [HttpPost]
+        [Authorize(Roles = "Organiser")]
         public async Task<ActionResult<Event>> PostEvent(Event eventItem)
         {
             _context.Events.Add(eventItem);
@@ -51,8 +53,9 @@ namespace RaceDay_EventMS.Controllers
             return CreatedAtAction(nameof(GetEvent), new { id = eventItem.EventId }, eventItem);
         }
 
-        // PUT: api/Events/5
+        // PUT: api/Events/5 (Only Organisers can update events)
         [HttpPut("{id}")]
+        [Authorize(Roles = "Organiser")]
         public async Task<IActionResult> PutEvent(int id, Event eventItem)
         {
             if (id != eventItem.EventId)
@@ -81,8 +84,9 @@ namespace RaceDay_EventMS.Controllers
             return NoContent();
         }
 
-        // DELETE: api/Events/5
+        // DELETE: api/Events/5 (Only Organisers can delete events)
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Organiser")]
         public async Task<IActionResult> DeleteEvent(int id)
         {
             var eventItem = await _context.Events.FindAsync(id);
