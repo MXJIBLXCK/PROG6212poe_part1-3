@@ -44,22 +44,17 @@ Ensure your connection string is properly configured in `appsettings.json` (or u
   }
 }
 ```
-3. Database Execution
+3. Run the API & Tests
 
-    Launch SQL Server Management Studio and connect to your local server instance ((localdb)\mssqllocaldb).
+    To run the API: Open your terminal in the solution folder and run:
+    Bash
 
-    Open docs/RaceDay_Database.sql inside SSMS.
+    dotnet run --project RaceDay_EventMS
 
-    Execute the script (F5) to generate the RaceDayDb database and schema.
+    To run the unit tests: Run the xUnit test suite with:
+    Bash
 
-Running Automated Tests
-
-The solution includes a dedicated unit testing project (RaceDay_EventMS.Tests) utilizing xUnit and EF Core InMemory.
-
-To execute the test suite:
-Bash
-
-dotnet test
+    dotnet test
 
 Project Structure
 
