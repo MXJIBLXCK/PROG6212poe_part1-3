@@ -18,6 +18,14 @@ namespace RaceDay_EventMS.Controllers
         }
 
         // GET: api/Events (Public - anyone can view events)
+        /// <summary>
+        /// Retrieves a list of all upcoming race events.Retrieves all upcoming race events.
+        /// </summary>
+        /// <remarks>This endpoint is publicly accessible and does not require authentication. Each
+        /// returned event includes its associated categories.</remarks>
+        /// <returns>An asynchronous operation that returns an <see cref="ActionResult{T}">ActionResult</see> containing a
+        /// collection of <see cref="Event"/> objects representing the upcoming race events. The collection is empty if
+        /// no events are available.</returns>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Event>>> GetEvents()
         {
@@ -43,6 +51,9 @@ namespace RaceDay_EventMS.Controllers
         }
 
         // POST: api/Events (Only Organisers can create events)
+        /// <summary>
+        /// Creates a new race event (Organiser role required).
+        /// </summary>
         [HttpPost]
         [Authorize(Roles = "Organiser")]
         public async Task<ActionResult<Event>> PostEvent(Event eventItem)
