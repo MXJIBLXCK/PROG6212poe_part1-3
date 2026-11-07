@@ -1,29 +1,46 @@
+using RaceDay_EventMS.Web.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add MVC services
 builder.Services.AddControllersWithViews();
+
+// Configure Session state
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// Register HttpContextAccessor and typed HttpClient for API calls
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient("RaceDayApi", client =>
+{
+    var baseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7081/";
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddScoped<ApiService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+
 app.UseRouting();
 
+app.UseSession();
 app.UseAuthorization();
-
-app.MapStaticAssets();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}")
-    .WithStaticAssets();
-
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
