@@ -10,7 +10,8 @@ namespace RaceDay_EventMS.Data
         public RaceDayDbContext(DbContextOptions<RaceDayDbContext> options) : base(options)
         {
         }
-
+        // Define DbSets for each entity
+        // DbSet represents a collection of entities of a specific type that can be queried from the database.
         public DbSet<User> Users { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<Event> Events { get; set; }
