@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RaceDay_EventMS.Data;
 using RaceDay_EventMS.Models;
+using RaceDay_EventMS.Services;
 
 namespace RaceDay_EventMS.Controllers
 {
@@ -110,6 +111,17 @@ namespace RaceDay_EventMS.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+        // POST: api/Events/upload-banner (Only Organisers can upload event banners)
+        [HttpPost("upload-banner")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> UploadBanner(IFormFile file, [FromServices] IBlobStorageService blobStorage)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No file uploaded.");
+
+            var imageUrl = await blobStorage.UploadFileAsync(file, "event-banners");
+            return Ok(new { ImageUrl = imageUrl });
         }
     }
 }
