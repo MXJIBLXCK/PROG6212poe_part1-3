@@ -1,0 +1,57 @@
+﻿@{
+    ViewData["Title"] = "My Enrolments";
+    var enrolmentsJson = ViewBag.EnrolmentsJson as string;
+}
+
+<div class="container mt-4">
+    <h2>My Event Enrolments</h2>
+    <hr />
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Event Title</th>
+                            <th>Description</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enrolmentsTableBody">
+                        <!-- Populated via script -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const rawJson = '@Html.Raw(enrolmentsJson ?? "[]")';
+        if (rawJson && rawJson !== "[]") {
+            try {
+                const enrolments = JSON.parse(rawJson);
+                const tbody = document.getElementById('enrolmentsTableBody');
+
+                enrolments.forEach(en => {
+                    const tr = document.createElement('tr');
+                    const ev = en.event || {};
+                    const dateStr = ev.date ? new Date(ev.date).toLocaleDateString() : 'N/A';
+
+                    tr.innerHTML = `
+                        <td class="fw-bold">${ev.title || 'Event #' + en.eventId}</td>
+                        <td>${ev.description || ''}</td>
+                        <td>${dateStr}</td>
+                        <td><span class="badge bg-success">Enrolled</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error parsing enrolments:", err);
+            }
+        }
+    </script>
+}
