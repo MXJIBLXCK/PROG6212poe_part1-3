@@ -43,45 +43,34 @@ namespace RaceDay_EventMS.Web.Controllers
         [HttpGet]
         public IActionResult CreateEvent()
         {
-            var redirectResult = RedirectIfNotOrganiser();
-            if (redirectResult != null) return redirectResult;
-
             return View();
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateEvent(string title, string description, DateTime date, IFormFile bannerFile)
         {
-            var redirectResult = RedirectIfNotOrganiser();
-            if (redirectResult != null) return redirectResult;
+            var token = HttpContext.Session.GetString("JWToken");
+            if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
 
             var client = _apiService.CreateClient();
-            string bannerUrl = string.Empty;
+            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(title ?? ""), "Title");
+            form.Add(new StringContent(description ?? ""), "Description");
+            form.Add(new StringContent(date.ToString("o")), "Date");
 
             if (bannerFile != null && bannerFile.Length > 0)
             {
-                using var content = new MultipartFormDataContent();
-                using var fileStream = bannerFile.OpenReadStream();
-                var fileContent = new StreamContent(fileStream);
-                fileContent.Headers.ContentType = new MediaTypeHeaderValue(bannerFile.ContentType);
-                content.Add(fileContent, "file", bannerFile.FileName);
-
-                var uploadResponse = await client.PostAsync("api/events/upload-banner", content);
-                if (uploadResponse.IsSuccessStatusCode)
-                {
-                    var uploadResult = await uploadResponse.Content.ReadAsStringAsync();
-                    using var doc = JsonDocument.Parse(uploadResult);
-                    bannerUrl = doc.RootElement.GetProperty("imageUrl").GetString() ?? "";
-                }
+                var fileStreamContent = new StreamContent(bannerFile.OpenReadStream());
+                // Corrected: passing 3 arguments instead of 4
+                form.Add(fileStreamContent, "bannerFile", bannerFile.FileName);
             }
 
-            var eventDto = new { Title = title, Description = description, Date = date, BannerUrl = bannerUrl };
-            var createResponse = await client.PostAsJsonAsync("api/events", eventDto);
-
-            if (createResponse.IsSuccessStatusCode)
+            var response = await client.PostAsync("api/events", form);
+            if (response.IsSuccessStatusCode)
             {
-                TempData["SuccessMessage"] = "Event created successfully!";
-                return RedirectToAction(nameof(Events));
+                return RedirectToAction("Events");
             }
 
             ModelState.AddModelError(string.Empty, "Failed to create event via API.");
