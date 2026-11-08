@@ -1,0 +1,56 @@
+﻿@{
+    ViewData["Title"] = "User Profile";
+    var profileJson = ViewBag.ProfileJson as string;
+    var userRole = Context.Session.GetString("UserRole");
+    var userEmail = Context.Session.GetString("UserEmail");
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="card-title text-center mb-4">👤 User Profile</h2>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Email Address:</label>
+                        <p class="form-control-plaintext">@userEmail</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Account Role:</label>
+                        <p class="form-control-plaintext"><span class="badge bg-info text-dark">@userRole</span></p>
+                    </div>
+
+                    <div id="additionalProfileInfo" class="mb-3">
+                        <!-- Populated dynamically if API returns extra profile data -->
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a asp-controller="Home" asp-action="Index" class="btn btn-secondary">Back to Home</a>
+                        <a asp-controller="Account" asp-action="Logout" class="btn btn-danger">Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const rawJson = '@Html.Raw(profileJson ?? "{}")';
+        if (rawJson && rawJson !== "{}") {
+            try {
+                const profile = JSON.parse(rawJson);
+                const container = document.getElementById('additionalProfileInfo');
+                if (profile.name) {
+                    const nameDiv = document.createElement('div');
+                    nameDiv.innerHTML = `<label class="form-label fw-bold">Name:</label><p class="form-control-plaintext">${profile.name}</p>`;
+                    container.appendChild(nameDiv);
+                }
+            } catch (err) {
+                console.error("Error parsing profile data:", err);
+            }
+        }
+    </script>
+}
