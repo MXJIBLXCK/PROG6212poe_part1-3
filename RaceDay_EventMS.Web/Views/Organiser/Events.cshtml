@@ -45,7 +45,6 @@
 
 @section Scripts {
     <script>
-        // Simple client-side rendering of the events JSON payload from ViewBag
         const rawJson = '@Html.Raw(eventsJson ?? "[]")';
         if (rawJson && rawJson !== "[]") {
             try {
@@ -53,13 +52,20 @@
                 const tbody = document.getElementById('eventsTableBody');
                 events.forEach(ev => {
                     const tr = document.createElement('tr');
-                    const bannerImg = ev.bannerUrl ? `<img src="${ev.bannerUrl}" width="80" height="50" class="object-fit-cover rounded" />` : '<span class="text-muted">No Image</span>';
-                    const dateStr = new Date(ev.date).toLocaleDateString();
+                    // Handle potential property name capitalization differences (Date vs date, BannerUrl vs bannerUrl)
+                    const banner = ev.bannerUrl || ev.BannerUrl;
+                    const bannerImg = banner ? `<img src="${banner}" width="80" height="50" class="object-fit-cover rounded" />` : '<span class="text-muted">No Image</span>';
+
+                    const rawDate = ev.date || ev.Date;
+                    const dateStr = rawDate ? new Date(rawDate).toLocaleDateString() : 'N/A';
+
+                    const title = ev.title || ev.Title || 'Untitled';
+                    const desc = ev.description || ev.Description || '';
 
                     tr.innerHTML = `
                         <td>${bannerImg}</td>
-                        <td class="fw-bold">${ev.title}</td>
-                        <td>${ev.description || ''}</td>
+                        <td class="fw-bold">${title}</td>
+                        <td>${desc}</td>
                         <td>${dateStr}</td>
                         <td>
                             <span class="badge bg-primary">Active</span>
