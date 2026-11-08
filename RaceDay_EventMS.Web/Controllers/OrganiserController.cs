@@ -16,23 +16,26 @@ namespace RaceDay_EventMS.Web.Controllers
 
         private bool IsOrganiser()
         {
-            var role = HttpContext.Session.GetString("UserRole");
-            return role == "Organiser";
+            return HttpContext.Session.GetString("UserRole") == "Organiser";
+        }
+
+        private IActionResult RedirectIfNotOrganiser()
+        {
+            if (!IsOrganiser())
+                return RedirectToAction("Login", "Account");
+            return null;
         }
 
         public async Task<IActionResult> Events()
         {
-            if (!IsOrganiser()) return RedirectToAction("Login", "Account");
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
             var response = await client.GetAsync("api/events");
 
             if (response.IsSuccessStatusCode)
-            {
-                var content = await response.Content.ReadAsStringAsync();
-                // Pass event list to view (we'll create the view next)
-                ViewBag.EventsJson = content;
-            }
+                ViewBag.EventsJson = await response.Content.ReadAsStringAsync();
 
             return View();
         }
@@ -40,19 +43,21 @@ namespace RaceDay_EventMS.Web.Controllers
         [HttpGet]
         public IActionResult CreateEvent()
         {
-            if (!IsOrganiser()) return RedirectToAction("Login", "Account");
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
+
             return View();
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateEvent(string title, string description, DateTime date, IFormFile bannerFile)
         {
-            if (!IsOrganiser()) return RedirectToAction("Login", "Account");
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
             string bannerUrl = string.Empty;
 
-            // 1. Upload banner file to API Azure Blob endpoint if provided
             if (bannerFile != null && bannerFile.Length > 0)
             {
                 using var content = new MultipartFormDataContent();
@@ -70,7 +75,6 @@ namespace RaceDay_EventMS.Web.Controllers
                 }
             }
 
-            // 2. Submit event payload to API
             var eventDto = new { Title = title, Description = description, Date = date, BannerUrl = bannerUrl };
             var createResponse = await client.PostAsJsonAsync("api/events", eventDto);
 
@@ -83,5 +87,57 @@ namespace RaceDay_EventMS.Web.Controllers
             ModelState.AddModelError(string.Empty, "Failed to create event via API.");
             return View();
         }
+
+        public IActionResult Dashboard()
+        {
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
+
+            // Optionally fetch summary stats here
+            return View();
+        }
+
+        public async Task<IActionResult> Categories()
+        {
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
+
+            var client = _apiService.CreateClient();
+            var response = await client.GetAsync("api/categories");
+
+            if (response.IsSuccessStatusCode)
+                ViewBag.CategoriesJson = await response.Content.ReadAsStringAsync();
+
+            return View();
+        }
+
+        public async Task<IActionResult> Enrolments()
+        {
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
+
+            var client = _apiService.CreateClient();
+            var response = await client.GetAsync("api/enrolments");
+
+            if (response.IsSuccessStatusCode)
+                ViewBag.EnrolmentsJson = await response.Content.ReadAsStringAsync();
+
+            return View();
+        }
+
+        public async Task<IActionResult> Results()
+        {
+            var redirectResult = RedirectIfNotOrganiser();
+            if (redirectResult != null) return redirectResult;
+
+            var client = _apiService.CreateClient();
+            var response = await client.GetAsync("api/events");
+
+            if (response.IsSuccessStatusCode)
+                ViewBag.EventsJson = await response.Content.ReadAsStringAsync();
+
+            return View();
+        }
     }
 }
+
