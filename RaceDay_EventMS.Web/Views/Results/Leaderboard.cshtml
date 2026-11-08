@@ -1,0 +1,52 @@
+﻿@{
+    ViewData["Title"] = "Race Leaderboard";
+    var leaderboardJson = ViewBag.LeaderboardJson as string;
+}
+
+<div class="container mt-4">
+    <h2>🏁 Race Leaderboard</h2>
+    <hr />
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Rank</th>
+                            <th>Participant Name</th>
+                            <th>Finish Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <!-- Populated via script -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const rawJson = '@Html.Raw(leaderboardJson ?? "[]")';
+        if (rawJson && rawJson !== "[]") {
+            try {
+                const results = JSON.parse(rawJson);
+                const tbody = document.getElementById('leaderboardBody');
+
+                results.forEach(res => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="fw-bold">#${res.rank}</td>
+                        <td>${res.participantName || 'Participant #' + res.participantId}</td>
+                        <td>${res.finishTime}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("Error parsing leaderboard:", err);
+            }
+        }
+    </script>
+}
