@@ -59,51 +59,55 @@
 
 @section Scripts {
     <script>
-        document.getElementById('createEventForm').addEventListener('submit', async function (e) {
-            e.preventDefault();
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('createEventForm');
+            
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
 
-            const errAlert = document.getElementById('errorAlert');
-            const succAlert = document.getElementById('successAlert');
-            const submitBtn = document.getElementById('submitBtn');
+                const errAlert = document.getElementById('errorAlert');
+                const succAlert = document.getElementById('successAlert');
+                const submitBtn = document.getElementById('submitBtn');
 
-            errAlert.classList.add('d-none');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Creating...';
+                errAlert.classList.add('d-none');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Creating...';
 
-            const formData = new FormData();
-            formData.append('title', document.getElementById('title').value);
-            formData.append('description', document.getElementById('description').value);
-            formData.append('date', document.getElementById('date').value);
-            formData.append('location', document.getElementById('location').value);
-            formData.append('eventType', document.getElementById('eventType').value);
+                const formData = new FormData();
+                formData.append('title', document.getElementById('title').value);
+                formData.append('description', document.getElementById('description').value);
+                formData.append('date', document.getElementById('date').value);
+                formData.append('location', document.getElementById('location').value);
+                formData.append('eventType', document.getElementById('eventType').value);
 
-            const fileInput = document.getElementById('bannerFile');
-            if (fileInput.files.length > 0) {
-                formData.append('bannerFile', fileInput.files[0]);
-            }
-
-            try {
-                const response = await fetch('/Organiser/CreateEvent', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    succAlert.classList.remove('d-none');
-                    setTimeout(() => {
-                        window.location.href = '/Organiser/Events';
-                    }, 1000);
-                } else {
-                    const errorText = await response.text();
-                    throw new Error(errorText || 'Failed to create event.');
+                const fileInput = document.getElementById('bannerFile');
+                if (fileInput.files.length > 0) {
+                    formData.append('bannerFile', fileInput.files[0]);
                 }
-            } catch (err) {
-                console.error("Creation error:", err);
-                errAlert.textContent = "Failed to create event: " + err.message;
-                errAlert.classList.remove('d-none');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Create Event';
-            }
+
+                try {
+                    const response = await fetch('/Organiser/CreateEvent', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        succAlert.classList.remove('d-none');
+                        setTimeout(() => {
+                            window.location.href = '/Organiser/Events';
+                        }, 1000);
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(errorText || 'Failed to create event.');
+                    }
+                } catch (err) {
+                    console.error("Creation error:", err);
+                    errAlert.textContent = "Failed to create event: " + err.message;
+                    errAlert.classList.remove('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Create Event';
+                }
+            });
         });
     </script>
 }
