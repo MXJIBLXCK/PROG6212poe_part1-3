@@ -1,0 +1,60 @@
+﻿@{
+    ViewData["Title"] = "Browse Events";
+    var eventsJson = ViewBag.EventsJson as string;
+}
+
+<div class="container mt-4">
+    <h2>Available Race Events</h2>
+    <hr />
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+    }
+
+    <div class="row" id="eventsCardContainer">
+        <!-- Dynamic Event Cards -->
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const rawJson = '@Html.Raw(eventsJson ?? "[]")';
+        if (rawJson && rawJson !== "[]") {
+            try {
+                const events = JSON.parse(rawJson);
+                const container = document.getElementById('eventsCardContainer');
+
+                events.forEach(ev => {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4 mb-4';
+
+                    const bannerImg = ev.bannerUrl ? `<img src="${ev.bannerUrl}" class="card-img-top" style="height: 180px; object-fit: cover;" />` : '<div class="bg-secondary text-white text-center py-5">No Image</div>';
+                    const dateStr = new Date(ev.date).toLocaleDateString();
+
+                    col.innerHTML = `
+                        <div class="card shadow-sm h-100">
+                            ${bannerImg}
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title fw-bold">${ev.title}</h5>
+                                <p class="card-text text-muted small">${ev.description || 'No description provided.'}</p>
+                                <p class="card-text mb-3"><strong>Date:</strong> ${dateStr}</p>
+                                <form asp-action="Enroll" method="post" class="mt-auto">
+                                    <input type="hidden" name="eventId" value="${ev.id}" />
+                                    <button type="submit" class="btn btn-primary w-100">Enrol Now</button>
+                                </form>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(col);
+                });
+            } catch (err) {
+                console.error("Error parsing events:", err);
+            }
+        }
+    </script>
+}
