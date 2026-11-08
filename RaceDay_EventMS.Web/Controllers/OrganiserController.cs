@@ -19,7 +19,7 @@ namespace RaceDay_EventMS.Web.Controllers
             return HttpContext.Session.GetString("UserRole") == "Organiser";
         }
 
-        private IActionResult RedirectIfNotOrganiser()
+        private IActionResult? RedirectIfNotOrganiser()
         {
             if (!IsOrganiser())
                 return RedirectToAction("Login", "Account");
@@ -31,11 +31,41 @@ namespace RaceDay_EventMS.Web.Controllers
             var redirectResult = RedirectIfNotOrganiser();
             if (redirectResult != null) return redirectResult;
 
+            var userIdString = HttpContext.Session.GetString("UserId");
+            if (!int.TryParse(userIdString, out int userId))
+                return RedirectToAction("Login", "Account");
+
             var client = _apiService.CreateClient();
             var response = await client.GetAsync("api/events");
 
             if (response.IsSuccessStatusCode)
-                ViewBag.EventsJson = await response.Content.ReadAsStringAsync();
+            {
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var events = JsonSerializer.Deserialize<List<JsonElement>>(jsonContent);
+
+                    // Filter to only include events created by this organizer
+                    var filteredEvents = events?
+                        .Where(e =>
+                        {
+                            if (e.TryGetProperty("organiserId", out var idProp) ||
+                                e.TryGetProperty("OrganiserId", out idProp))
+                            {
+                                return idProp.GetInt32() == userId;
+                            }
+                            return false;
+                        })
+                        .ToList();
+
+                    var filteredJson = JsonSerializer.Serialize(filteredEvents ?? new List<JsonElement>());
+                    ViewBag.EventsJson = filteredJson;
+                }
+                catch
+                {
+                    ViewBag.EventsJson = "[]";
+                }
+            }
 
             return View();
         }
@@ -47,23 +77,29 @@ namespace RaceDay_EventMS.Web.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateEvent(string title, string description, DateTime date, IFormFile bannerFile)
+        public async Task<IActionResult> CreateEvent(string title, string description, DateTime date, string location, string eventType, IFormFile bannerFile)
         {
             var token = HttpContext.Session.GetString("JWToken");
             if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
 
+            var userIdString = HttpContext.Session.GetString("UserId");
+            if (!int.TryParse(userIdString, out int userId))
+                return RedirectToAction("Login", "Account");
+
             var client = _apiService.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(title ?? ""), "Title");
             form.Add(new StringContent(description ?? ""), "Description");
-            form.Add(new StringContent(date.ToString("o")), "Date");
+            form.Add(new StringContent(date.ToString("o")), "EventDate");
+            form.Add(new StringContent(location ?? ""), "Location");
+            form.Add(new StringContent(eventType ?? "Run"), "EventType");
+            form.Add(new StringContent(userId.ToString()), "OrganiserId");
 
             if (bannerFile != null && bannerFile.Length > 0)
             {
                 var fileStreamContent = new StreamContent(bannerFile.OpenReadStream());
-                // Corrected: passing 3 arguments instead of 4
                 form.Add(fileStreamContent, "bannerFile", bannerFile.FileName);
             }
 
@@ -73,7 +109,8 @@ namespace RaceDay_EventMS.Web.Controllers
                 return RedirectToAction("Events");
             }
 
-            ModelState.AddModelError(string.Empty, "Failed to create event via API.");
+            var errorContent = await response.Content.ReadAsStringAsync();
+            ModelState.AddModelError(string.Empty, $"Failed to create event: {errorContent}");
             return View();
         }
 

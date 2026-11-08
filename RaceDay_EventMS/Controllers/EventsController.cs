@@ -119,6 +119,7 @@ namespace RaceDay_EventMS.Controllers
         }
         // POST: api/Events/upload-banner (Only Organisers can upload event banners)
         [HttpPost("upload-banner")]
+        [Authorize(Roles = "Organiser")]
         public async Task<IActionResult> UploadBanner(IFormFile file)
         {
             if (file == null || file.Length == 0)

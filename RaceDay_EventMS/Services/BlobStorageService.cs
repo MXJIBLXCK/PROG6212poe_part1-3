@@ -1,37 +1,55 @@
 ﻿using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace RaceDay_EventMS.Services
 {
-    public class BlobStorageService : IBlobStorageService
+    public class BlobStorageService(IConfiguration configuration, IWebHostEnvironment env) : IBlobStorageService
     {
-        private readonly IConfiguration _configuration;
+        private readonly string _connectionString = configuration["AzureStorage:ConnectionString"] ?? string.Empty;
+        private readonly IWebHostEnvironment _env = env;
 
-        public BlobStorageService(IConfiguration configuration)
+        public async Task<string> UploadFileAsync(IFormFile file, string containerName = "event-banners")
         {
-            _configuration = configuration;
-        }
+            if (file == null || file.Length == 0)
+                return string.Empty;
 
-        public async Task<string> UploadFileAsync(IFormFile file, string containerName)
-        {
-            var connectionString = _configuration["AzureStorage:ConnectionString"];
-            if (string.IsNullOrEmpty(connectionString))
+            // Fallback to local wwwroot/uploads if connection string is empty or set to dev storage
+            if (string.IsNullOrEmpty(_connectionString) || _connectionString == "UseDevelopmentStorage=true")
             {
-                // Fallback for local development if Azure credentials aren't configured yet
-                var localFileName = $"{Guid.NewGuid()}_{file.FileName}";
-                return $"/uploads/{containerName}/{localFileName}";
+                var webRootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+                var uploadsFolder = Path.Combine(webRootPath, "uploads");
+
+                if (!Directory.Exists(uploadsFolder))
+                    Directory.CreateDirectory(uploadsFolder);
+
+                var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                return $"/uploads/{uniqueFileName}";
             }
 
-            var blobServiceClient = new BlobServiceClient(connectionString);
+            // Real Azure Blob Storage execution
+            var blobServiceClient = new BlobServiceClient(_connectionString);
             var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
             await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
 
-            var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+            var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
             var blobClient = containerClient.GetBlobClient(fileName);
 
             using (var stream = file.OpenReadStream())
             {
-                await blobClient.UploadAsync(stream, new BlobHttpHeaders { ContentType = file.ContentType });
+                await blobClient.UploadAsync(stream, true);
             }
 
             return blobClient.Uri.ToString();
