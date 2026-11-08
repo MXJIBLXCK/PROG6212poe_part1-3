@@ -91,7 +91,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication(); // Must be BEFORE UseAuthorization
 app.UseAuthorization();
-
+app.UseStaticFiles(); // Enables serving files from wwwroot
 app.MapControllers();
 
 app.Run();

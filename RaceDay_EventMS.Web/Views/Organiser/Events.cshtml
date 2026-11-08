@@ -50,14 +50,21 @@
             try {
                 const events = JSON.parse(rawJson);
                 const tbody = document.getElementById('eventsTableBody');
+                tbody.innerHTML = ''; // Clear existing rows if any
+
                 events.forEach(ev => {
                     const tr = document.createElement('tr');
-                    // Handle potential property name capitalization differences (Date vs date, BannerUrl vs bannerUrl)
                     const banner = ev.bannerUrl || ev.BannerUrl;
                     const bannerImg = banner ? `<img src="${banner}" width="80" height="50" class="object-fit-cover rounded" />` : '<span class="text-muted">No Image</span>';
 
                     const rawDate = ev.date || ev.Date;
-                    const dateStr = rawDate ? new Date(rawDate).toLocaleDateString() : 'N/A';
+                    let dateStr = 'N/A';
+                    if (rawDate) {
+                        const parsedDate = new Date(rawDate);
+                        if (!isNaN(parsedDate)) {
+                            dateStr = parsedDate.toLocaleDateString();
+                        }
+                    }
 
                     const title = ev.title || ev.Title || 'Untitled';
                     const desc = ev.description || ev.Description || '';

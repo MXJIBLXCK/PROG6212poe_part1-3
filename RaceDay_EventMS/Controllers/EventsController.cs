@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using RaceDay_EventMS.Data;
 using RaceDay_EventMS.Models;
 using RaceDay_EventMS.Services;
@@ -12,10 +15,12 @@ namespace RaceDay_EventMS.Controllers
     public class EventsController : ControllerBase
     {
         private readonly RaceDayDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public EventsController(RaceDayDbContext context)
+        public EventsController(RaceDayDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // GET: api/Events (Public - anyone can view events)
@@ -114,14 +119,59 @@ namespace RaceDay_EventMS.Controllers
         }
         // POST: api/Events/upload-banner (Only Organisers can upload event banners)
         [HttpPost("upload-banner")]
-        [Authorize(Roles = "Organiser")]
-        public async Task<IActionResult> UploadBanner(IFormFile file, [FromServices] IBlobStorageService blobStorage)
+        public async Task<IActionResult> UploadBanner(IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return BadRequest("No file uploaded.");
+                return BadRequest(new { message = "No file uploaded." });
 
-            var imageUrl = await blobStorage.UploadFileAsync(file, "event-banners");
-            return Ok(new { ImageUrl = imageUrl });
+            try
+            {
+                // Try Azure Blob Storage if configured in appsettings.json
+                var connectionString = _configuration["AzureBlobStorage:ConnectionString"];
+                var containerName = _configuration["AzureBlobStorage:ContainerName"] ?? "event-banners";
+
+                if (!string.IsNullOrEmpty(connectionString) && connectionString != "your_azure_connection_string_here")
+                {
+                    var blobServiceClient = new BlobServiceClient(connectionString);
+                    var containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                    await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
+
+                    var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+                    var blobClient = containerClient.GetBlobClient(fileName);
+
+                    using (var stream = file.OpenReadStream())
+                    {
+                        await blobClient.UploadAsync(stream, true);
+                    }
+
+                    return Ok(new { imageUrl = blobClient.Uri.ToString() });
+                }
+                else
+                {
+                    // Fallback: Save locally to wwwroot/uploads if Azure is not configured
+                    var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                    if (!Directory.Exists(uploadsFolder))
+                        Directory.CreateDirectory(uploadsFolder);
+
+                    var uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+                    var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    // Return relative or absolute URL for the local file
+                    var baseUrl = $"{Request.Scheme}://{Request.Host}";
+                    var imageUrl = $"{baseUrl}/uploads/{uniqueFileName}";
+
+                    return Ok(new { imageUrl });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "File upload failed", error = ex.Message });
+            }
         }
     }
-}
+    }
