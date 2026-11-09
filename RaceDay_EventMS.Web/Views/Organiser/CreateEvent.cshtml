@@ -1,113 +1,51 @@
-﻿@{
+﻿@model dynamic
+@{
     ViewData["Title"] = "Create Event";
 }
 
-<div class="row justify-content-center mt-4">
-    <div class="col-md-7">
-        <div class="card shadow">
-            <div class="card-body">
-                <h2 class="mb-4">Create New Race Event</h2>
+<div class="container mt-4">
+    <h2>Create New Race Event</h2>
+    <hr />
 
-                <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
-                <div id="successAlert" class="alert alert-success d-none" role="alert">Event created successfully! Redirecting...</div>
+    <div asp-validation-summary="All" class="text-danger"></div>
 
-                <form id="createEventForm">
-                    <div class="mb-3">
-                        <label for="eventName" class="form-label">Event Title</label>
-                        <input type="text" id="eventName" name="eventName" class="form-control" required />
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea id="description" name="description" class="form-control" rows="3"></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="date" class="form-label">Event Date & Time</label>
-                        <input type="datetime-local" id="date" name="date" class="form-control" required />
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="location" class="form-label">Location</label>
-                        <input type="text" id="location" name="location" class="form-control" required />
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="eventType" class="form-label">Event Type</label>
-                        <select id="eventType" name="eventType" class="form-control" required>
-                            <option value="">-- Select Event Type --</option>
-                            <option value="Run">Run</option>
-                            <option value="Walk">Walk</option>
-                            <option value="Cycle">Cycle</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="bannerFile" class="form-label">Event Banner Image</label>
-                        <input type="file" id="bannerFile" name="bannerFile" class="form-control" accept="image/*" />
-                    </div>
-
-                    <div class="d-flex justify-content-between">
-                        <a asp-action="Events" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" id="submitBtn" class="btn btn-primary">Create Event</button>
-                    </div>
-                </form>
-            </div>
+    <form asp-action="CreateEvent" method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="eventName" class="form-label">Event Name</label>
+            <input type="text" id="eventName" name="eventName" class="form-control" required />
         </div>
-    </div>
+
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea id="description" name="description" class="form-control" rows="3" required></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label for="eventDate" class="form-label">Event Date & Time</label>
+            <input type="datetime-local" id="eventDate" name="eventDate" class="form-control" required />
+        </div>
+
+        <div class="mb-3">
+            <label for="location" class="form-label">Location</label>
+            <input type="text" id="location" name="location" class="form-control" required />
+        </div>
+
+        <div class="mb-3">
+            <label for="eventType" class="form-label">Event Type</label>
+            <select id="eventType" name="eventType" class="form-select">
+                <option value="Run">Run</option>
+                <option value="Cycle">Cycle</option>
+                <option value="Trail">Trail</option>
+                <option value="Triathlon">Triathlon</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label for="bannerFile" class="form-label">Event Banner Image</label>
+            <input type="file" id="bannerFile" name="bannerFile" class="form-control" accept="image/*" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Create Event</button>
+        <a asp-action="Events" class="btn btn-secondary">Cancel</a>
+    </form>
 </div>
-
-@section Scripts {
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const form = document.getElementById('createEventForm');
-            
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-
-                const errAlert = document.getElementById('errorAlert');
-                const succAlert = document.getElementById('successAlert');
-                const submitBtn = document.getElementById('submitBtn');
-
-                errAlert.classList.add('d-none');
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Creating...';
-
-                const formData = new FormData();
-                formData.append('eventName', document.getElementById('eventName').value);
-                formData.append('description', document.getElementById('description').value);
-                formData.append('date', document.getElementById('date').value);
-                formData.append('location', document.getElementById('location').value);
-                formData.append('eventType', document.getElementById('eventType').value);
-
-                const fileInput = document.getElementById('bannerFile');
-                if (fileInput.files.length > 0) {
-                    formData.append('bannerFile', fileInput.files[0]);
-                }
-
-                try {
-                    const response = await fetch('/Organiser/CreateEvent', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (response.ok) {
-                        succAlert.classList.remove('d-none');
-                        setTimeout(() => {
-                            window.location.href = '/Organiser/Events';
-                        }, 1000);
-                    } else {
-                        const errorText = await response.text();
-                        throw new Error(errorText || 'Failed to create event.');
-                    }
-                } catch (err) {
-                    console.error("Creation error:", err);
-                    errAlert.textContent = "Failed to create event: " + err.message;
-                    errAlert.classList.remove('d-none');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Create Event';
-                }
-            });
-        });
-    </script>
-}

@@ -1,85 +1,121 @@
 ﻿@{
-    ViewData["Title"] = "Manage Events";
+    ViewData["Title"] = "Organiser Dashboard";
     var eventsJson = ViewBag.EventsJson as string;
 }
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Manage Race Events</h2>
-        <a asp-action="CreateEvent" class="btn btn-success">➕ Create New Event</a>
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-4">📊 Organiser Dashboard</h2>
+        </div>
     </div>
 
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
-    }
-
-    <div class="card shadow-sm">
-        <div class="card-body">
-            @if (string.IsNullOrEmpty(eventsJson) || eventsJson == "[]")
-            {
-                <p class="text-muted">No events found. Click "Create New Event" to add one.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Banner</th>
-                                <th>Title</th>
-                                <th>Description</th>
-                                <th>Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="eventsTableBody">
-                            <!-- Populated dynamically via script or parsed server-side -->
-                        </tbody>
-                    </table>
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Total Events</h5>
+                    <h2>@(ViewBag.EventCount ?? 0)</h2>
                 </div>
-            }
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Upcoming Events</h5>
+                    <h2>@(ViewBag.UpcomingEvents ?? 0)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Total Enrolments</h5>
+                    <h2>@(ViewBag.TotalEnrolments ?? 0)</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Active Categories</h5>
+                    <h2>0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">📅 Upcoming Events Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Event Name</th>
+                                    <th>Date</th>
+                                    <th>Location</th>
+                                    <th>Type</th>
+                                    <th>Enrolments</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="eventsTableBody">
+                                <!-- Populated by script -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        const rawJson = '@Html.Raw(eventsJson ?? "[]")';
+        const rawJson = '@Html.Raw(ViewBag.EventsJson ?? "[]")';
         if (rawJson && rawJson !== "[]") {
             try {
                 const events = JSON.parse(rawJson);
                 const tbody = document.getElementById('eventsTableBody');
-                tbody.innerHTML = ''; // Clear existing rows if any
+                if (tbody) {
+                    tbody.innerHTML = '';
 
-                events.forEach(ev => {
-                    const tr = document.createElement('tr');
-                    const banner = ev.bannerUrl || ev.BannerUrl;
-                    const bannerImg = banner ? `<img src="${banner}" width="80" height="50" class="object-fit-cover rounded" />` : '<span class="text-muted">No Image</span>';
+                    events.forEach(ev => {
+                        const tr = document.createElement('tr');
+                        // Fixed mapping to correctly read EventName and EventDate from API response
+                        const title = ev.EventName || ev.eventName || ev.title || ev.Title || 'Untitled';
+                        const date = ev.EventDate || ev.eventDate || ev.date || ev.Date;
+                        const location = ev.Location || ev.location || 'N/A';
+                        const eventType = ev.EventType || ev.eventType || 'N/A';
+                        const eventId = ev.EventId || ev.eventId || ev.id;
 
-                    const rawDate = ev.date || ev.Date;
-                    let dateStr = 'N/A';
-                    if (rawDate) {
-                        const parsedDate = new Date(rawDate);
-                        if (!isNaN(parsedDate)) {
-                            dateStr = parsedDate.toLocaleDateString();
+                        let dateStr = 'N/A';
+                        if (date) {
+                            const parsedDate = new Date(date);
+                            if (!isNaN(parsedDate)) {
+                                dateStr = parsedDate.toLocaleDateString();
+                            }
                         }
-                    }
 
-                    const title = ev.title || ev.Title || 'Untitled';
-                    const desc = ev.description || ev.Description || '';
-
-                    tr.innerHTML = `
-                        <td>${bannerImg}</td>
-                        <td class="fw-bold">${title}</td>
-                        <td>${desc}</td>
-                        <td>${dateStr}</td>
-                        <td>
-                            <span class="badge bg-primary">Active</span>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                        tr.innerHTML = `
+                            <td><strong>${title}</strong></td>
+                            <td>${dateStr}</td>
+                            <td>${location}</td>
+                            <td><span class="badge bg-secondary">${eventType}</span></td>
+                            <td>0</td>
+                            <td>
+                                <a href="/Organiser/EditEvent/${eventId}" class="btn btn-sm btn-warning">Edit</a>
+                                <a href="/Organiser/DeleteEvent/${eventId}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</a>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
             } catch (err) {
                 console.error("Error parsing events JSON:", err);
             }

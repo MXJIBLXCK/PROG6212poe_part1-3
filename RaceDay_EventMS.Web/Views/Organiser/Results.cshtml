@@ -1,5 +1,7 @@
 ﻿@{
     ViewData["Title"] = "Race Results";
+    var eventsJson = ViewBag.EventsJson as string ?? "[]";
+    var enrolmentsJson = ViewBag.EnrolmentsJson as string ?? "[]";
 }
 
 <div class="container mt-4">
@@ -15,12 +17,12 @@
                     <form id="selectEventForm">
                         <div class="mb-3">
                             <label for="eventSelect" class="form-label fw-bold">Choose an Event</label>
-                            <select id="eventSelect" class="form-control form-control-lg" required>
+                            <select id="eventSelect" class="form-select form-select-lg" required>
                                 <option value="">-- Select Event --</option>
                             </select>
                         </div>
-                        <button type="button" class="btn btn-primary w-100" onclick="loadEventCategories()">
-                            📂 Load Categories
+                        <button type="button" class="btn btn-primary w-100" onclick="filterDataByEvent()">
+                            📂 Load Categories & Participants
                         </button>
                     </form>
                 </div>
@@ -32,22 +34,16 @@
                     <h5 class="mb-0">✏️ Enter Participant Result</h5>
                 </div>
                 <div class="card-body">
-                    <form id="resultForm">
+                    <form asp-action="SubmitResult" method="post" id="resultForm">
                         <div class="mb-3">
-                            <label for="categorySelect" class="form-label fw-bold">Category</label>
-                            <select id="categorySelect" class="form-control" required>
-                                <option value="">-- Select Category --</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="participantSelect" class="form-label fw-bold">Participant</label>
-                            <select id="participantSelect" class="form-control" required>
-                                <option value="">-- Select Participant --</option>
+                            <label for="enrolmentSelect" class="form-label fw-bold">Participant / Enrolment</label>
+                            <select id="enrolmentSelect" name="enrolmentId" class="form-select" required>
+                                <option value="">-- Select Event First --</option>
                             </select>
                         </div>
                         <div class="mb-3">
                             <label for="finishTime" class="form-label fw-bold">Finish Time (HH:MM:SS)</label>
-                            <input type="text" id="finishTime" name="finishTime" class="form-control" placeholder="00:45:30" required />
+                            <input type="text" id="finishTime" name="finishTimeStr" class="form-control" placeholder="00:45:30" required />
                         </div>
                         <div class="mb-3">
                             <label for="finishingPosition" class="form-label fw-bold">Finishing Position</label>
@@ -78,7 +74,6 @@
                                     <th>👤 Participant Name</th>
                                     <th>⏱️ Finish Time</th>
                                     <th>📏 Category</th>
-                                    <th>⚙️ Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="resultsTableBody">
@@ -94,196 +89,70 @@
 
 @section Scripts {
     <script>
+        const rawEvents = '@Html.Raw(eventsJson)';
+        const rawEnrolments = '@Html.Raw(enrolmentsJson)';
+
         let allEvents = [];
-        let allCategories = [];
         let allEnrolments = [];
 
-        // Load events on page load
         document.addEventListener('DOMContentLoaded', function () {
-            loadEvents();
-            setupResultFormSubmission();
+            try {
+                allEvents = JSON.parse(rawEvents);
+                allEnrolments = JSON.parse(rawEnrolments);
+            } catch (e) {
+                console.error("Error parsing server data", e);
+            }
+            populateEventDropdown();
         });
 
-        function loadEvents() {
-            const rawJson = '@Html.Raw(ViewBag.EventsJson ?? "[]")';
-            if (rawJson && rawJson !== "[]") {
-                try {
-                    allEvents = JSON.parse(rawJson);
-                    const select = document.getElementById('eventSelect');
-                    
-                    allEvents.forEach(ev => {
-                        const option = document.createElement('option');
-                        option.value = ev.eventId || ev.EventId;
-                        option.textContent = ev.title || ev.Title || 'Untitled';
-                        select.appendChild(option);
-                    });
-                } catch (err) {
-                    console.error("Error loading events:", err);
-                }
-            }
+        function populateEventDropdown() {
+            const select = document.getElementById('eventSelect');
+            select.innerHTML = '<option value="">-- Select Event --</option>';
+
+            allEvents.forEach(ev => {
+                const id = ev.eventId || ev.EventId || ev.id;
+                const name = ev.eventName || ev.EventName || ev.title || ev.Title || 'Untitled Event';
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                select.appendChild(option);
+            });
         }
 
-        async function loadEventCategories() {
+        function filterDataByEvent() {
             const eventId = document.getElementById('eventSelect').value;
             if (!eventId) {
-                alert('❌ Please select an event');
+                alert('Please select an event');
                 return;
             }
 
-            try {
-                // Fetch categories for this event
-                const response = await fetch(`/api/categories?eventId=${eventId}`);
-                if (response.ok) {
-                    allCategories = await response.json();
-                    
-                    // Populate category dropdown
-                    const categorySelect = document.getElementById('categorySelect');
-                    categorySelect.innerHTML = '<option value="">-- Select Category --</option>';
-                    
-                    allCategories.forEach(cat => {
-                        const option = document.createElement('option');
-                        option.value = cat.categoryId || cat.CategoryId;
-                        option.textContent = cat.categoryName || cat.CategoryName || 'Untitled';
-                        categorySelect.appendChild(option);
-                    });
+            const enrolmentSelect = document.getElementById('enrolmentSelect');
+            enrolmentSelect.innerHTML = '<option value="">-- Select Participant --</option>';
 
-                    // Fetch enrolments for this event
-                    const enrolmentsResponse = await fetch(`/api/enrolments?eventId=${eventId}`);
-                    if (enrolmentsResponse.ok) {
-                        allEnrolments = await enrolmentsResponse.json();
-                        loadLeaderboard(eventId);
-                    }
-                } else {
-                    alert('❌ Failed to load categories');
-                }
-            } catch (err) {
-                console.error('Error loading categories:', err);
-                alert('❌ Error loading categories');
+            // Filter enrolments for selected event
+            const filteredEnrolments = allEnrolments.filter(e => {
+                const eId = e.eventId || e.EventId;
+                return eId == eventId;
+            });
+
+            if (filteredEnrolments.length === 0) {
+                enrolmentSelect.innerHTML = '<option value="">No participants registered for this event</option>';
+            } else {
+                filteredEnrolments.forEach(en => {
+                    const enId = en.enrolmentId || en.EnrolmentId || en.id;
+                    const name = en.participantName || en.UserFullName || en.UserName || `Participant #${enId}`;
+                    const opt = document.createElement('option');
+                    opt.value = enId;
+                    opt.textContent = name;
+                    enrolmentSelect.appendChild(opt);
+                });
             }
-        }
 
-        async function loadLeaderboard(eventId) {
-            try {
-                const response = await fetch(`/api/results?eventId=${eventId}`);
-                if (response.ok) {
-                    const results = await response.json();
-                    displayLeaderboard(results);
-                }
-            } catch (err) {
-                console.error('Error loading leaderboard:', err);
-            }
-        }
-
-        function displayLeaderboard(results) {
+            // Render leaderboard container
             const container = document.getElementById('leaderboardContainer');
             const message = document.getElementById('leaderboardMessage');
-            const tbody = document.getElementById('resultsTableBody');
-
-            if (!results || results.length === 0) {
-                message.textContent = '📊 No results recorded yet for this event';
-                container.style.display = 'none';
-                return;
-            }
-
             message.style.display = 'none';
             container.style.display = 'block';
-            tbody.innerHTML = '';
-
-            results.sort((a, b) => {
-                const posA = a.finishingPosition || a.FinishingPosition || 999;
-                const posB = b.finishingPosition || b.FinishingPosition || 999;
-                return posA - posB;
-            });
-
-            results.forEach((result, index) => {
-                const tr = document.createElement('tr');
-                const position = result.finishingPosition || result.FinishingPosition || (index + 1);
-                const participantName = result.participantName || result.ParticipantName || 'Unknown';
-                const finishTime = result.finishTimeSeconds || result.FinishTimeSeconds || 0;
-                const categoryName = result.categoryName || result.CategoryName || 'Unknown';
-                const resultId = result.enrolmentId || result.EnrolmentId;
-
-                // Format time
-                const hours = Math.floor(finishTime / 3600);
-                const minutes = Math.floor((finishTime % 3600) / 60);
-                const seconds = finishTime % 60;
-                const timeFormatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-                // Medal emoji
-                let medal = '';
-                if (position === 1) medal = '🥇';
-                else if (position === 2) medal = '🥈';
-                else if (position === 3) medal = '🥉';
-
-                tr.innerHTML = `
-                    <td><strong>${medal} ${position}</strong></td>
-                    <td>${participantName}</td>
-                    <td><code>${timeFormatted}</code></td>
-                    <td><span class="badge bg-info">${categoryName}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-warning" onclick="editResult(${resultId})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteResult(${resultId})">Delete</button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function setupResultFormSubmission() {
-            document.getElementById('resultForm').addEventListener('submit', async function (e) {
-                e.preventDefault();
-
-                const categoryId = document.getElementById('categorySelect').value;
-                const participantId = document.getElementById('participantSelect').value;
-                const finishTimeStr = document.getElementById('finishTime').value;
-                const finishingPosition = document.getElementById('finishingPosition').value;
-
-                // Convert time string to seconds
-                const timeParts = finishTimeStr.split(':');
-                let finishTimeSeconds = 0;
-                if (timeParts.length === 3) {
-                    finishTimeSeconds = parseInt(timeParts[0]) * 3600 + parseInt(timeParts[1]) * 60 + parseInt(timeParts[2]);
-                } else {
-                    alert('❌ Invalid time format. Use HH:MM:SS');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/Organiser/SubmitResult', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            categoryId: parseInt(categoryId),
-                            participantId: parseInt(participantId),
-                            finishTimeSeconds: finishTimeSeconds,
-                            finishingPosition: parseInt(finishingPosition)
-                        })
-                    });
-
-                    if (response.ok) {
-                        alert('✅ Result submitted successfully!');
-                        document.getElementById('resultForm').reset();
-                        loadEventCategories(); // Refresh leaderboard
-                    } else {
-                        alert('❌ Failed to submit result');
-                    }
-                } catch (err) {
-                    console.error('Error submitting result:', err);
-                    alert('❌ Error submitting result');
-                }
-            });
-        }
-
-        function editResult(resultId) {
-            alert('Edit functionality to be implemented for result ' + resultId);
-        }
-
-        function deleteResult(resultId) {
-            if (confirm('Are you sure you want to delete this result?')) {
-                alert('Delete functionality to be implemented for result ' + resultId);
-            }
         }
     </script>
 }

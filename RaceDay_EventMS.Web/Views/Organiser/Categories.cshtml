@@ -1,8 +1,128 @@
 ﻿@{
     ViewData["Title"] = "Manage Categories";
+    var eventsJson = ViewBag.EventsJson as string ?? "[]";
+    var categoriesJson = ViewBag.CategoriesJson as string ?? "[]";
 }
+
 <div class="container mt-4">
-    <h2>🏷️ Event Categories</h2>
-    <hr />
-    <p class="text-muted">Category management interface.</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>🏷️ Event Categories</h2>
+        <a asp-action="CreateEvent" class="btn btn-success">➕ Create New Event</a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-5 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">➕ Add New Category</h5>
+                </div>
+                <div class="card-body">
+                    <form asp-action="AddCategory" method="post">
+                        <div class="mb-3">
+                            <label for="eventSelectCat" class="form-label fw-bold">Select Event</label>
+                            <select id="eventSelectCat" name="eventId" class="form-select" required>
+                                <option value="">-- Choose Event --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Category Name</label>
+                            <input type="text" name="categoryName" class="form-control" placeholder="e.g. 10km Marathon" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Distance (KM)</label>
+                            <input type="number" step="0.1" name="distanceKm" class="form-control" placeholder="10.0" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Entry Fee (ZAR)</label>
+                            <input type="number" step="0.01" name="entryFee" class="form-control" placeholder="150.00" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Max Participants</label>
+                            <input type="number" name="maxParticipants" class="form-control" placeholder="200" required />
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Create Category</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">📋 Existing Categories</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Distance</th>
+                                    <th>Fee</th>
+                                    <th>Max Capacity</th>
+                                </tr>
+                            </thead>
+                            <tbody id="categoriesTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        const rawEventsCat = '@Html.Raw(eventsJson)';
+        const rawCategories = '@Html.Raw(categoriesJson)';
+
+        document.addEventListener('DOMContentLoaded', function () {
+            try {
+                const events = JSON.parse(rawEventsCat);
+                const categories = JSON.parse(rawCategories);
+
+                // Populate Event Selector with robust fallback keys
+                const select = document.getElementById('eventSelectCat');
+                if (select) {
+                    events.forEach(ev => {
+                        const id = ev.eventId || ev.EventId || ev.id;
+                        const name = ev.eventName || ev.EventName || ev.title || ev.Title || 'Untitled Event';
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = name;
+                        select.appendChild(opt);
+                    });
+                }
+
+                // Populate Categories Table
+                const tbody = document.getElementById('categoriesTableBody');
+                if (tbody) {
+                    tbody.innerHTML = '';
+                    if (!categories || categories.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center">No categories found.</td></tr>';
+                    } else {
+                        categories.forEach(cat => {
+                            const name = cat.categoryName || cat.CategoryName || 'N/A';
+                            const dist = cat.distanceKm || cat.DistanceKm || 0;
+                            const fee = cat.entryFee || cat.EntryFee || 0;
+                            const max = cat.maxParticipants || cat.MaxParticipants || 0;
+
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td><strong>${name}</strong></td>
+                                <td>${dist} km</td>
+                                <td>R${fee}</td>
+                                <td>${max}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading categories script", e);
+            }
+        });
+    </script>
+}

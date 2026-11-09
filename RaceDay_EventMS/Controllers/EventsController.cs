@@ -112,6 +112,93 @@ namespace RaceDay_EventMS.Controllers
             }
         }
 
+        // PUT: api/Events/5 (organisers only)
+        [HttpPut("{id}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> UpdateEvent(int id, [FromForm] EventUpdateDto dto)
+        {
+            try
+            {
+                var eventItem = await _context.Events.FindAsync(id);
+                if (eventItem == null)
+                {
+                    return NotFound(new { message = "Event not found." });
+                }
+
+                // Verify the user is the organiser of this event
+                var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(idClaim, out int organiserId) || eventItem.OrganiserId != organiserId)
+                {
+                    return Forbid();
+                }
+
+                // Update fields if provided
+                if (!string.IsNullOrWhiteSpace(dto.EventName))
+                    eventItem.EventName = dto.EventName;
+
+                if (!string.IsNullOrWhiteSpace(dto.Description))
+                    eventItem.Description = dto.Description;
+
+                if (dto.EventDate != default)
+                    eventItem.EventDate = dto.EventDate;
+
+                if (!string.IsNullOrWhiteSpace(dto.Location))
+                    eventItem.Location = dto.Location;
+
+                if (!string.IsNullOrWhiteSpace(dto.EventType))
+                    eventItem.EventType = dto.EventType;
+
+                // Handle optional banner update if a new file is uploaded
+                if (dto.BannerFile != null && dto.BannerFile.Length > 0)
+                {
+                    var result = await UploadBannerFile(dto.BannerFile);
+                    if (result.ContainsKey("imageUrl"))
+                    {
+                        eventItem.BannerUrl = result["imageUrl"].ToString() ?? string.Empty;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return StatusCode(500, new { message = "Failed to update event", error = detail });
+            }
+        }
+
+        // DELETE: api/Events/5 (organisers only)
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            try
+            {
+                var eventItem = await _context.Events.FindAsync(id);
+                if (eventItem == null)
+                {
+                    return NotFound(new { message = "Event not found." });
+                }
+
+                // Verify the user is the organiser of this event
+                var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(idClaim, out int organiserId) || eventItem.OrganiserId != organiserId)
+                {
+                    return Forbid();
+                }
+
+                _context.Events.Remove(eventItem);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return StatusCode(500, new { message = "Failed to delete event", error = detail });
+            }
+        }
+
         private async Task<Dictionary<string, object>> UploadBannerFile(IFormFile file)
         {
             var result = new Dictionary<string, object>();
