@@ -40,6 +40,10 @@ namespace RaceDay_EventMS.Web.Controllers
                 HttpContext.Session.SetString("UserId", userId.ToString());
                 HttpContext.Session.SetString("UserEmail", model.Email);
 
+                if (string.Equals(role, "Organiser", StringComparison.OrdinalIgnoreCase))
+                    return RedirectToAction("Dashboard", "Organiser");
+                if (string.Equals(role, "Participant", StringComparison.OrdinalIgnoreCase))
+                    return RedirectToAction("Events", "Participant");
                 return RedirectToAction("Index", "Home");
             }
 

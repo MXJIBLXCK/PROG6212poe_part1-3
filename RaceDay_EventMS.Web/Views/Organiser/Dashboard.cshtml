@@ -1,88 +1,133 @@
 ﻿@{
     ViewData["Title"] = "Organiser Dashboard";
-    var eventsJson = ViewBag.EventsJson as string ?? "[]";
+    var eventsJson = ViewBag.EventsJson as string;
+    var enrolmentsJson = ViewBag.EnrolmentsJson as string;
 }
 
 <div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <h2>📊 Organiser Dashboard</h2>
-            <a asp-action="CreateEvent" class="btn btn-success">➕ Create New Event</a>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h2 class="mb-0">📊 Organiser Dashboard</h2>
+        <div>
+            <a asp-action="Events" class="btn btn-outline-dark me-1">Events</a>
+            <a asp-action="Categories" class="btn btn-outline-dark me-1">Categories</a>
+            <a asp-action="Enrolments" class="btn btn-outline-dark me-1">Enrolments</a>
+            <a asp-action="Results" class="btn btn-outline-dark me-1">Results</a>
+            <a asp-action="CreateEvent" class="btn btn-success">➕ Create Event</a>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">📅 Your Managed Events</h5>
-                </div>
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+    }
+
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white shadow-sm">
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Event Name</th>
-                                    <th>Date</th>
-                                    <th>Location</th>
-                                    <th>Type</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="eventsTableBody">
-                                <!-- Populated by script -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <h6>Total Events</h6><h2 id="cEvents">0</h2>
                 </div>
             </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <h6>Upcoming Events</h6><h2 id="cUpcoming">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <h6>Total Enrolments</h6><h2 id="cEnrolments">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-white shadow-sm">
+                <div class="card-body">
+                    <h6>Total Categories</h6><h2 id="cCategories">0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white"><h5 class="mb-0">📅 Your Events</h5></div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Location</th>
+                            <th>Type</th>
+                            <th>Categories</th>
+                            <th>Enrolments</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsTableBody"></tbody>
+                </table>
+            </div>
+            <p id="noEvents" class="text-muted d-none mb-0">You haven't created any events yet.</p>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        const rawJson = '@Html.Raw(eventsJson)';
-        document.addEventListener('DOMContentLoaded', function () {
-            if (rawJson && rawJson !== "[]") {
-                try {
-                    const events = JSON.parse(rawJson);
-                    const tbody = document.getElementById('eventsTableBody');
-                    if (tbody) {
-                        tbody.innerHTML = '';
-                        events.forEach(ev => {
-                            const tr = document.createElement('tr');
-                            const title = ev.eventName || ev.EventName || ev.title || ev.Title || 'Untitled';
-                            const date = ev.eventDate || ev.EventDate || ev.date || ev.Date;
-                            const location = ev.location || ev.Location || 'N/A';
-                            const eventType = ev.eventType || ev.EventType || 'N/A';
-                            const eventId = ev.eventId || ev.EventId || ev.id;
+        const events = @Html.Raw(string.IsNullOrWhiteSpace(eventsJson) ? "[]" : eventsJson);
+        const enrolments = @Html.Raw(string.IsNullOrWhiteSpace(enrolmentsJson) ? "[]" : enrolmentsJson);
 
-                            let dateStr = 'N/A';
-                            if (date) {
-                                const parsedDate = new Date(date);
-                                if (!isNaN(parsedDate)) {
-                                    dateStr = parsedDate.toLocaleDateString();
-                                }
-                            }
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-                            tr.innerHTML = `
-                                <td><strong>${title}</strong></td>
-                                <td>${dateStr}</td>
-                                <td>${location}</td>
-                                <td><span class="badge bg-secondary">${eventType}</span></td>
-                                <td>
-                                    <a href="/Organiser/EditEvent/${eventId}" class="btn btn-sm btn-warning">Edit</a>
-                                    <a href="/Organiser/DeleteEvent/${eventId}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">Delete</a>
-                                </td>
-                            `;
-                            tbody.appendChild(tr);
-                        });
-                    }
-                } catch (err) {
-                    console.error("Error parsing events JSON:", err);
-                }
-            }
+        const myIds = new Set(events.map(e => e.eventId ?? e.EventId));
+        const myEnrolments = enrolments.filter(e => myIds.has(e.eventId));
+        const now = new Date();
+
+        let totalCats = 0, upcoming = 0;
+        const tbody = document.getElementById('eventsTableBody');
+        if (!events.length) document.getElementById('noEvents').classList.remove('d-none');
+
+        events.forEach(ev => {
+            const id = ev.eventId ?? ev.EventId;
+            const d = new Date(ev.eventDate ?? ev.EventDate);
+            const isUpcoming = !isNaN(d) && d > now;
+            if (isUpcoming) upcoming++;
+
+            const cats = (ev.categories ?? ev.Categories ?? []).length;
+            totalCats += cats;
+            const enrolCount = myEnrolments.filter(e => e.eventId == id).length;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${esc(ev.eventName ?? ev.EventName ?? 'Untitled')}</strong></td>
+                <td>${isNaN(d) ? 'N/A' : esc(d.toLocaleString())}
+                    ${isUpcoming ? '<span class="badge bg-success ms-1">Upcoming</span>' : '<span class="badge bg-secondary ms-1">Past</span>'}</td>
+                <td>${esc(ev.location ?? ev.Location)}</td>
+                <td><span class="badge bg-secondary">${esc(ev.eventType ?? ev.EventType)}</span></td>
+                <td>${cats}</td>
+                <td>${enrolCount}</td>
+                <td class="text-nowrap">
+                    <a href="/Organiser/EditEvent/${esc(id)}" class="btn btn-sm btn-warning">Edit</a>
+                    <form method="post" action="/Organiser/DeleteEvent/${esc(id)}" class="d-inline"
+                          onsubmit="return confirm('Delete this event and its categories?')">
+                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                    </form>
+                </td>`;
+            tbody.appendChild(tr);
         });
+
+        document.getElementById('cEvents').textContent = events.length;
+        document.getElementById('cUpcoming').textContent = upcoming;
+        document.getElementById('cEnrolments').textContent = myEnrolments.length;
+        document.getElementById('cCategories').textContent = totalCats;
     </script>
 }

@@ -1,0 +1,73 @@
+﻿@{
+    ViewData["Title"] = "My Results";
+    var resultsJson = ViewBag.ResultsJson as string;
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0">🏆 My Race Results</h2>
+        <div>
+            <a href="/Participant/Events" class="btn btn-outline-dark me-1">Browse Events</a>
+            <a href="/Participant/MyEnrolments" class="btn btn-outline-dark">My Enrolments</a>
+        </div>
+    </div>
+    <hr />
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Event</th>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Finish Time</th>
+                            <th>Position</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+            <p id="noResults" class="text-muted d-none mb-0">No results yet. They appear once an organiser captures them after your event.</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const results = @Html.Raw(string.IsNullOrWhiteSpace(resultsJson) ? "[]" : resultsJson);
+
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        const fmtTime = secs => {
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+            return [h, m, s].map(n => String(n).padStart(2, '0')).join(':');
+        };
+
+        // 1st, 2nd, 3rd, 4th... 11th, 12th, 13th
+        const ordinal = n => {
+            const v = n % 100;
+            if (v >= 11 && v <= 13) return n + 'th';
+            return n + ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+        };
+
+        const tbody = document.getElementById('resultsBody');
+        if (!results.length) document.getElementById('noResults').classList.remove('d-none');
+
+        results.forEach(r => {
+            const d = new Date(r.eventDate);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold">${esc(r.eventName)}</td>
+                <td>${isNaN(d) ? 'N/A' : esc(d.toLocaleDateString())}</td>
+                <td>${esc(r.categoryName)}</td>
+                <td>${fmtTime(r.finishTimeSeconds)}</td>
+                <td><strong>${ordinal(r.finishingPosition)}</strong> out of ${esc(r.totalFinishers)} finishers</td>`;
+            tbody.appendChild(tr);
+        });
+    </script>
+}

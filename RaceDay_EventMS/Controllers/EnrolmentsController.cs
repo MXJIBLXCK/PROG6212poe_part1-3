@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RaceDay_EventMS.Data;
 using RaceDay_EventMS.Models;
+using System.Security.Claims;
 
 namespace RaceDay_EventMS.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class EnrolmentsController : ControllerBase
     {
         private readonly RaceDayDbContext _context;
@@ -16,77 +19,152 @@ namespace RaceDay_EventMS.Controllers
             _context = context;
         }
 
-        // GET: api/Enrolments
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Enrolment>>> GetEnrolments()
+        private int GetUserId()
         {
-            return await _context.Enrolments
-                .Include(e => e.Participant)
-                .Include(e => e.Category)
+            var id = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(id, out var userId) ? userId : 0;
+        }
+
+        // GET: api/Enrolments (organisers)
+        [HttpGet]
+        [Authorize(Roles = "Organiser")]
+        public async Task<IActionResult> GetEnrolments()
+        {
+            var now = DateTime.Now;
+            var list = await _context.Enrolments
+                .Select(e => new
+                {
+                    enrolmentId = e.EnrolmentId,
+                    participantId = e.ParticipantId,
+                    participantName = e.Participant!.Email,
+                    categoryId = e.CategoryId,
+                    categoryName = e.Category!.CategoryName,
+                    eventId = e.Category!.EventId,
+                    eventName = e.Category!.Event!.EventName,
+                    enrolmentDate = e.EnrolmentDate,
+                    status = e.Result != null ? "Completed"
+                           : (e.Category!.Event!.EventDate < now ? "Awaiting Results" : "Confirmed")
+                })
                 .ToListAsync();
+
+            return Ok(list);
+        }
+
+        // GET: api/Enrolments/my (logged-in participant)
+        [HttpGet("my")]
+        [Authorize(Roles = "Participant")]
+        public async Task<IActionResult> GetMyEnrolments()
+        {
+            var userId = GetUserId();
+            if (userId == 0) return Unauthorized(new { message = "Could not read user id from token." });
+
+            var now = DateTime.Now;
+            var list = await _context.Enrolments
+                .Where(e => e.ParticipantId == userId)
+                .Select(e => new
+                {
+                    enrolmentId = e.EnrolmentId,
+                    categoryName = e.Category!.CategoryName,
+                    distanceKm = e.Category!.DistanceKm,
+                    entryFee = e.Category!.EntryFee,
+                    eventId = e.Category!.EventId,
+                    eventName = e.Category!.Event!.EventName,
+                    eventDate = e.Category!.Event!.EventDate,
+                    location = e.Category!.Event!.Location,
+                    enrolmentDate = e.EnrolmentDate,
+                    status = e.Result != null ? "Completed"
+                           : (e.Category!.Event!.EventDate < now ? "Awaiting Results" : "Confirmed")
+                })
+                .ToListAsync();
+
+            return Ok(list);
         }
 
         // GET: api/Enrolments/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Enrolment>> GetEnrolment(int id)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetEnrolment(int id)
         {
             var enrolment = await _context.Enrolments
-                .Include(e => e.Participant)
-                .Include(e => e.Category)
-                .FirstOrDefaultAsync(e => e.EnrolmentId == id);
+                .Where(e => e.EnrolmentId == id)
+                .Select(e => new
+                {
+                    enrolmentId = e.EnrolmentId,
+                    participantId = e.ParticipantId,
+                    categoryId = e.CategoryId,
+                    categoryName = e.Category!.CategoryName,
+                    eventId = e.Category!.EventId,
+                    enrolmentDate = e.EnrolmentDate
+                })
+                .FirstOrDefaultAsync();
 
-            if (enrolment == null)
-            {
-                return NotFound();
-            }
+            if (enrolment == null) return NotFound();
 
-            return enrolment;
+            if (!User.IsInRole("Organiser") && enrolment.participantId != GetUserId())
+                return Forbid();
+
+            return Ok(enrolment);
         }
 
-        // POST: api/Enrolments
+        // POST: api/Enrolments, body: { "categoryId": 3 }
         [HttpPost]
-        public async Task<ActionResult<Enrolment>> PostEnrolment(Enrolment enrolment)
+        [Authorize(Roles = "Participant")]
+        public async Task<IActionResult> PostEnrolment([FromBody] EnrolDto dto)
         {
-            // 1. Find the Category to check max participants and get its details
+            var userId = GetUserId();
+            if (userId == 0) return Unauthorized(new { message = "Could not read user id from token." });
+
             var category = await _context.Categories
-                .FirstOrDefaultAsync(c => c.CategoryId == enrolment.CategoryId);
+                .FirstOrDefaultAsync(c => c.CategoryId == dto.CategoryId);
 
             if (category == null)
-            {
                 return BadRequest(new { message = "The specified category does not exist." });
-            }
 
-            // 2. Count current enrolments for this category
-            var currentEnrolmentCount = await _context.Enrolments
-                .CountAsync(e => e.CategoryId == enrolment.CategoryId);
+            var alreadyEnrolled = await _context.Enrolments
+                .AnyAsync(e => e.ParticipantId == userId && e.Category!.EventId == category.EventId);
 
-            // 3. Validate participant limit
-            if (currentEnrolmentCount >= category.MaxParticipants)
+            if (alreadyEnrolled)
+                return BadRequest(new { message = "You are already enrolled in this event." });
+
+            var currentCount = await _context.Enrolments
+                .CountAsync(e => e.CategoryId == category.CategoryId);
+
+            if (currentCount >= category.MaxParticipants)
+                return BadRequest(new { message = $"This category is full (max {category.MaxParticipants} participants)." });
+
+            var enrolment = new Enrolment
             {
-                return BadRequest(new { message = $"Registration failed. This category has reached its maximum capacity of {category.MaxParticipants} participants." });
-            }
+                ParticipantId = userId,
+                CategoryId = category.CategoryId,
+                EnrolmentDate = DateTime.UtcNow
+            };
 
-            // 4. If under limit, proceed with saving the enrolment
             _context.Enrolments.Add(enrolment);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetEnrolment), new { id = enrolment.EnrolmentId }, enrolment);
+            return CreatedAtAction(nameof(GetEnrolment),
+                new { id = enrolment.EnrolmentId },
+                new { enrolmentId = enrolment.EnrolmentId, categoryId = enrolment.CategoryId });
         }
 
         // DELETE: api/Enrolments/5
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteEnrolment(int id)
         {
             var enrolment = await _context.Enrolments.FindAsync(id);
-            if (enrolment == null)
-            {
-                return NotFound();
-            }
+            if (enrolment == null) return NotFound();
+
+            if (!User.IsInRole("Organiser") && enrolment.ParticipantId != GetUserId())
+                return Forbid();
 
             _context.Enrolments.Remove(enrolment);
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
+    }
+
+    public class EnrolDto
+    {
+        public int CategoryId { get; set; }
     }
 }

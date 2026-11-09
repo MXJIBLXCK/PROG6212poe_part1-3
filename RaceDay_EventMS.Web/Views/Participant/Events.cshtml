@@ -1,10 +1,16 @@
 ﻿@{
-    ViewData["Title"] = "Browse Events";
+    ViewData["Title"] = "Upcoming Events";
     var eventsJson = ViewBag.EventsJson as string;
 }
 
 <div class="container mt-4">
-    <h2>Available Race Events</h2>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0">🏁 Upcoming Race Events</h2>
+        <div>
+            <a href="/Participant/MyEnrolments" class="btn btn-outline-dark me-1">My Enrolments</a>
+            <a href="/Participant/MyResults" class="btn btn-outline-dark">My Results</a>
+        </div>
+    </div>
     <hr />
 
     @if (TempData["SuccessMessage"] != null)
@@ -16,45 +22,130 @@
         <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
     }
 
-    <div class="row" id="eventsCardContainer">
-        <!-- Dynamic Event Cards -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Search</label>
+                    <input type="text" id="fSearch" class="form-control" placeholder="Event name..." />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Type</label>
+                    <select id="fType" class="form-select">
+                        <option value="">All</option>
+                        <option>Run</option>
+                        <option>Walk</option>
+                        <option>Cycle</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Location</label>
+                    <input type="text" id="fLocation" class="form-control" placeholder="Any location" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">From date</label>
+                    <input type="date" id="fDate" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check">
+                        <input type="checkbox" id="fPast" class="form-check-input" />
+                        <label for="fPast" class="form-check-label small">Show past events</label>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <div class="row" id="eventsCardContainer"></div>
+    <p id="noEvents" class="text-muted d-none">No events match your filters.</p>
 </div>
 
 @section Scripts {
     <script>
-        const rawJson = '@Html.Raw(eventsJson ?? "[]")';
-        if (rawJson && rawJson !== "[]") {
-            try {
-                const events = JSON.parse(rawJson);
-                const container = document.getElementById('eventsCardContainer');
+        const events = @Html.Raw(string.IsNullOrWhiteSpace(eventsJson) ? "[]" : eventsJson);
 
-                events.forEach(ev => {
-                    const col = document.createElement('div');
-                    col.className = 'col-md-4 mb-4';
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-                    const bannerImg = ev.bannerUrl ? `<img src="${ev.bannerUrl}" class="card-img-top" style="height: 180px; object-fit: cover;" />` : '<div class="bg-secondary text-white text-center py-5">No Image</div>';
-                    const dateStr = new Date(ev.date).toLocaleDateString();
+        const container = document.getElementById('eventsCardContainer');
 
-                    col.innerHTML = `
-                        <div class="card shadow-sm h-100">
-                            ${bannerImg}
-                            <div class="card-body d-flex flex-column">
-                                <h5 class="card-title fw-bold">${ev.title}</h5>
-                                <p class="card-text text-muted small">${ev.description || 'No description provided.'}</p>
-                                <p class="card-text mb-3"><strong>Date:</strong> ${dateStr}</p>
-                                <form asp-action="Enroll" method="post" class="mt-auto">
-                                    <input type="hidden" name="eventId" value="${ev.id}" />
-                                    <button type="submit" class="btn btn-primary w-100">Enrol Now</button>
-                                </form>
-                            </div>
+        function render() {
+            const search = document.getElementById('fSearch').value.trim().toLowerCase();
+            const type = document.getElementById('fType').value;
+            const loc = document.getElementById('fLocation').value.trim().toLowerCase();
+            const from = document.getElementById('fDate').value;
+            const showPast = document.getElementById('fPast').checked;
+            const now = new Date();
+
+            const shown = events.filter(ev => {
+                const name = (ev.eventName ?? ev.EventName ?? '').toLowerCase();
+                const evLoc = (ev.location ?? ev.Location ?? '').toLowerCase();
+                const evType = ev.eventType ?? ev.EventType ?? '';
+                const d = new Date(ev.eventDate ?? ev.EventDate);
+
+                if (search && !name.includes(search)) return false;
+                if (type && evType !== type) return false;
+                if (loc && !evLoc.includes(loc)) return false;
+                if (!showPast && !isNaN(d) && d < now) return false;
+                if (from && !isNaN(d) && d < new Date(from)) return false;
+                return true;
+            });
+
+            container.innerHTML = '';
+            document.getElementById('noEvents').classList.toggle('d-none', shown.length > 0);
+
+            shown.forEach(ev => {
+                const name = ev.eventName ?? ev.EventName ?? 'Untitled';
+                const rawDate = ev.eventDate ?? ev.EventDate;
+                const banner = ev.bannerUrl ?? ev.BannerUrl;
+                const categories = ev.categories ?? ev.Categories ?? [];
+
+                const parsed = rawDate ? new Date(rawDate) : null;
+                const dateStr = parsed && !isNaN(parsed) ? parsed.toLocaleString() : 'N/A';
+
+                const bannerImg = banner
+                    ? `<img src="${esc(banner)}" class="card-img-top" style="height:180px; object-fit:cover;" />`
+                    : '<div class="bg-secondary text-white text-center py-5">No Image</div>';
+
+                const options = categories.map(c => {
+                    const id = c.categoryId ?? c.CategoryId;
+                    return `<option value="${esc(id)}">${esc(c.categoryName ?? c.CategoryName)} (${esc(c.distanceKm ?? c.DistanceKm)} km, R${esc(c.entryFee ?? c.EntryFee)})</option>`;
+                }).join('');
+
+                const enrolForm = categories.length
+                    ? `<form action="/Participant/Enroll" method="post" class="mt-auto">
+                           <select name="categoryId" class="form-select mb-2" required>
+                               <option value="">-- Choose category --</option>
+                               ${options}
+                           </select>
+                           <button type="submit" class="btn btn-primary w-100">Enrol Now</button>
+                       </form>`
+                    : `<button class="btn btn-secondary w-100 mt-auto" disabled>No categories open yet</button>`;
+
+                const col = document.createElement('div');
+                col.className = 'col-md-4 mb-4';
+                col.innerHTML = `
+                    <div class="card shadow-sm h-100">
+                        ${bannerImg}
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title fw-bold">${esc(name)}</h5>
+                            <p class="card-text text-muted small">${esc(ev.description ?? ev.Description) || 'No description provided.'}</p>
+                            <p class="card-text mb-1"><strong>Date:</strong> ${esc(dateStr)}</p>
+                            <p class="card-text mb-1"><strong>Location:</strong> ${esc(ev.location ?? ev.Location)}</p>
+                            <p class="card-text mb-3"><span class="badge bg-secondary">${esc(ev.eventType ?? ev.EventType)}</span></p>
+                            ${enrolForm}
                         </div>
-                    `;
-                    container.appendChild(col);
-                });
-            } catch (err) {
-                console.error("Error parsing events:", err);
-            }
+                    </div>`;
+                container.appendChild(col);
+            });
         }
+
+        ['fSearch', 'fType', 'fLocation', 'fDate', 'fPast'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('input', render);
+            el.addEventListener('change', render);
+        });
+
+        render();
     </script>
 }

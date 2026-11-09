@@ -4,8 +4,19 @@
 }
 
 <div class="container mt-4">
-    <h2>My Event Enrolments</h2>
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0">My Event Enrolments</h2>
+        <div>
+            <a href="/Participant/Events" class="btn btn-outline-dark me-1">Browse Events</a>
+            <a href="/Participant/MyResults" class="btn btn-outline-dark">My Results</a>
+        </div>
+    </div>
     <hr />
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
 
     <div class="card shadow-sm">
         <div class="card-body">
@@ -13,45 +24,47 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
                         <tr>
-                            <th>Event Title</th>
-                            <th>Description</th>
+                            <th>Event</th>
+                            <th>Category</th>
                             <th>Date</th>
+                            <th>Location</th>
+                            <th>Fee</th>
                             <th>Status</th>
                         </tr>
                     </thead>
-                    <tbody id="enrolmentsTableBody">
-                        <!-- Populated via script -->
-                    </tbody>
+                    <tbody id="enrolmentsTableBody"></tbody>
                 </table>
             </div>
+            <p id="noEnrolments" class="text-muted d-none mb-0">You haven't enrolled in any events yet.</p>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        const rawJson = '@Html.Raw(enrolmentsJson ?? "[]")';
-        if (rawJson && rawJson !== "[]") {
-            try {
-                const enrolments = JSON.parse(rawJson);
-                const tbody = document.getElementById('enrolmentsTableBody');
+        const enrolments = @Html.Raw(string.IsNullOrWhiteSpace(enrolmentsJson) ? "[]" : enrolmentsJson);
 
-                enrolments.forEach(en => {
-                    const tr = document.createElement('tr');
-                    const ev = en.event || {};
-                    const dateStr = ev.date ? new Date(ev.date).toLocaleDateString() : 'N/A';
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-                    tr.innerHTML = `
-                        <td class="fw-bold">${ev.title || 'Event #' + en.eventId}</td>
-                        <td>${ev.description || ''}</td>
-                        <td>${dateStr}</td>
-                        <td><span class="badge bg-success">Enrolled</span></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch (err) {
-                console.error("Error parsing enrolments:", err);
-            }
-        }
+        const badge = s => s === 'Completed' ? 'bg-success' : s === 'Awaiting Results' ? 'bg-warning text-dark' : 'bg-primary';
+
+        const tbody = document.getElementById('enrolmentsTableBody');
+        if (!enrolments.length) document.getElementById('noEnrolments').classList.remove('d-none');
+
+        enrolments.forEach(en => {
+            const parsed = en.eventDate ? new Date(en.eventDate) : null;
+            const dateStr = parsed && !isNaN(parsed) ? parsed.toLocaleString() : 'N/A';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold">${esc(en.eventName)}</td>
+                <td>${esc(en.categoryName)} (${esc(en.distanceKm)} km)</td>
+                <td>${esc(dateStr)}</td>
+                <td>${esc(en.location)}</td>
+                <td>R${esc(en.entryFee)}</td>
+                <td><span class="badge ${badge(en.status)}">${esc(en.status)}</span></td>`;
+            tbody.appendChild(tr);
+        });
     </script>
 }

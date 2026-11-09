@@ -16,13 +16,10 @@ namespace RaceDay_EventMS.Web.Controllers
 
         private bool IsOrganiser()
         {
-            var userRole = HttpContext.Session.GetString("UserRole");
+            var role = HttpContext.Session.GetString("UserRole");
             var token = HttpContext.Session.GetString("JWToken");
-
-            bool hasValidRole = string.Equals(userRole, "Organiser", StringComparison.OrdinalIgnoreCase) ||
-                                string.Equals(userRole, "Organizer", StringComparison.OrdinalIgnoreCase);
-
-            return hasValidRole || (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(HttpContext.Session.GetString("UserId")));
+            return !string.IsNullOrEmpty(token) &&
+                   string.Equals(role, "Organiser", StringComparison.OrdinalIgnoreCase);
         }
 
         private IActionResult? RedirectIfNotOrganiser()
@@ -37,12 +34,44 @@ namespace RaceDay_EventMS.Web.Controllers
 
         private int GetUserId()
         {
-            var userIdString = HttpContext.Session.GetString("UserId");
-            if (int.TryParse(userIdString, out int userId) && userId > 0)
+            return int.TryParse(HttpContext.Session.GetString("UserId"), out int id) ? id : 0;
+        }
+
+        private static string? ReadMessage(string body)
+        {
+            try
             {
-                return userId;
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("message", out var msg))
+                    return msg.GetString();
             }
-            return 1;
+            catch { }
+            return null;
+        }
+
+        private async Task<string> GetJson(HttpClient client, string url)
+        {
+            var response = await client.GetAsync(url);
+            return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : "[]";
+        }
+
+        // only this organiser's events
+        private async Task<string> GetMyEventsJson(HttpClient client)
+        {
+            var userId = GetUserId();
+            var json = await GetJson(client, "api/events");
+            try
+            {
+                var events = JsonSerializer.Deserialize<List<JsonElement>>(json) ?? new List<JsonElement>();
+                var mine = events.Where(e =>
+                    (e.TryGetProperty("organiserId", out var p) || e.TryGetProperty("OrganiserId", out p))
+                    && p.GetInt32() == userId).ToList();
+                return JsonSerializer.Serialize(mine);
+            }
+            catch
+            {
+                return "[]";
+            }
         }
 
         public async Task<IActionResult> Dashboard()
@@ -51,50 +80,8 @@ namespace RaceDay_EventMS.Web.Controllers
             if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
-            var response = await client.GetAsync("api/events");
-
-            int eventCount = 0;
-            int upcomingCount = 0;
-            string eventsJson = "[]";
-
-            if (response.IsSuccessStatusCode)
-            {
-                eventsJson = await response.Content.ReadAsStringAsync();
-                try
-                {
-                    using var doc = JsonDocument.Parse(eventsJson);
-                    var root = doc.RootElement;
-                    
-                    if (root.ValueKind == JsonValueKind.Array)
-                    {
-                        eventCount = root.GetArrayLength();
-                        
-                        foreach (var element in root.EnumerateArray())
-                        {
-                            // Check for EventDate with casing variations
-                            if ((element.TryGetProperty("eventDate", out var dateProp) || 
-                                 element.TryGetProperty("EventDate", out dateProp)) &&
-                                DateTime.TryParse(dateProp.GetString(), out DateTime evDate))
-                            {
-                                if (evDate > DateTime.Now)
-                                {
-                                    upcomingCount++;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Dashboard parsing error: {ex.Message}");
-                }
-            }
-
-            ViewBag.EventCount = eventCount;
-            ViewBag.UpcomingEvents = upcomingCount;
-            ViewBag.TotalEnrolments = 0;
-            ViewBag.EventsJson = eventsJson;
-
+            ViewBag.EventsJson = await GetMyEventsJson(client);
+            ViewBag.EnrolmentsJson = await GetJson(client, "api/enrolments");
             return View();
         }
 
@@ -103,39 +90,8 @@ namespace RaceDay_EventMS.Web.Controllers
             var redirectResult = RedirectIfNotOrganiser();
             if (redirectResult != null) return redirectResult;
 
-            var userId = GetUserId();
-            if (userId == 0) return RedirectToAction("Login", "Account");
-
             var client = _apiService.CreateClient();
-            var response = await client.GetAsync("api/events");
-
-            if (response.IsSuccessStatusCode)
-            {
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                try
-                {
-                    var events = JsonSerializer.Deserialize<List<JsonElement>>(jsonContent);
-                    var filteredEvents = events?
-                        .Where(e =>
-                        {
-                            if (e.TryGetProperty("organiserId", out var idProp) ||
-                                e.TryGetProperty("OrganiserId", out idProp))
-                            {
-                                return idProp.GetInt32() == userId;
-                            }
-                            return false;
-                        })
-                        .ToList();
-
-                    var filteredJson = JsonSerializer.Serialize(filteredEvents ?? new List<JsonElement>());
-                    ViewBag.EventsJson = filteredJson;
-                }
-                catch
-                {
-                    ViewBag.EventsJson = "[]";
-                }
-            }
-
+            ViewBag.EventsJson = await GetMyEventsJson(client);
             return View();
         }
 
@@ -147,44 +103,35 @@ namespace RaceDay_EventMS.Web.Controllers
             return View();
         }
 
+        // called by fetch() from the view, so it returns status codes
         [HttpPost]
-        public async Task<IActionResult> CreateEvent(string eventName, string description, DateTime eventDate, string location, string eventType, IFormFile bannerFile)
+        public async Task<IActionResult> CreateEvent(string eventName, string? description, DateTime date, string location, string eventType, IFormFile? bannerFile)
         {
-            var redirectResult = RedirectIfNotOrganiser();
-            if (redirectResult != null) return redirectResult;
-
-            var token = HttpContext.Session.GetString("JWToken");
-            if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
-
-            var userId = GetUserId();
-            if (userId == 0) return RedirectToAction("Login", "Account");
+            if (!IsOrganiser())
+                return Unauthorized("Please log in as an organiser.");
 
             var client = _apiService.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var form = new MultipartFormDataContent();
             form.Add(new StringContent(eventName ?? ""), "EventName");
             form.Add(new StringContent(description ?? ""), "Description");
-            form.Add(new StringContent(eventDate.ToString("o")), "EventDate");
+            form.Add(new StringContent(date.ToString("o")), "EventDate");
             form.Add(new StringContent(location ?? ""), "Location");
             form.Add(new StringContent(eventType ?? "Run"), "EventType");
-            form.Add(new StringContent(userId.ToString()), "OrganiserId");
 
             if (bannerFile != null && bannerFile.Length > 0)
             {
-                var fileStreamContent = new StreamContent(bannerFile.OpenReadStream());
-                form.Add(fileStreamContent, "bannerFile", bannerFile.FileName);
+                var fileContent = new StreamContent(bannerFile.OpenReadStream());
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(bannerFile.ContentType);
+                form.Add(fileContent, "bannerFile", bannerFile.FileName);
             }
 
             var response = await client.PostAsync("api/events", form);
             if (response.IsSuccessStatusCode)
-            {
-                return RedirectToAction("Events");
-            }
+                return Ok(new { message = "Event created" });
 
-            var errorContent = await response.Content.ReadAsStringAsync();
-            ModelState.AddModelError(string.Empty, $"Failed to create event: {errorContent}");
-            return View();
+            var error = await response.Content.ReadAsStringAsync();
+            return StatusCode((int)response.StatusCode, $"API {(int)response.StatusCode}: {error}");
         }
 
         [HttpGet]
@@ -195,96 +142,60 @@ namespace RaceDay_EventMS.Web.Controllers
 
             var client = _apiService.CreateClient();
             var response = await client.GetAsync($"api/events/{id}");
+            if (!response.IsSuccessStatusCode) return NotFound();
 
-            if (!response.IsSuccessStatusCode)
-                return NotFound();
-
-            var content = await response.Content.ReadAsStringAsync();
-            ViewBag.EventJson = content;
+            ViewBag.EventId = id;
+            ViewBag.EventJson = await response.Content.ReadAsStringAsync();
             return View();
         }
 
         [HttpPost]
-        public async Task<IActionResult> EditEvent(int id, string eventName, string description, DateTime eventDate, string location, string eventType, IFormFile bannerFile)
+        public async Task<IActionResult> EditEvent(int id, string title, string? description, DateTime date, string location, string eventType, IFormFile? bannerFile)
         {
             var redirectResult = RedirectIfNotOrganiser();
             if (redirectResult != null) return redirectResult;
 
-            var token = HttpContext.Session.GetString("JWToken");
-            if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
-
-            var userId = GetUserId();
             var client = _apiService.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var form = new MultipartFormDataContent();
-            form.Add(new StringContent(id.ToString()), "EventId");
-            form.Add(new StringContent(eventName ?? ""), "EventName");
+            form.Add(new StringContent(title ?? ""), "EventName");
             form.Add(new StringContent(description ?? ""), "Description");
-            form.Add(new StringContent(eventDate.ToString("o")), "EventDate");
+            form.Add(new StringContent(date.ToString("o")), "EventDate");
             form.Add(new StringContent(location ?? ""), "Location");
             form.Add(new StringContent(eventType ?? "Run"), "EventType");
-            form.Add(new StringContent(userId.ToString()), "OrganiserId");
 
             if (bannerFile != null && bannerFile.Length > 0)
             {
-                var fileStreamContent = new StreamContent(bannerFile.OpenReadStream());
-                form.Add(fileStreamContent, "bannerFile", bannerFile.FileName);
+                var fileContent = new StreamContent(bannerFile.OpenReadStream());
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(bannerFile.ContentType);
+                form.Add(fileContent, "bannerFile", bannerFile.FileName);
             }
 
             var response = await client.PutAsync($"api/events/{id}", form);
             if (response.IsSuccessStatusCode)
             {
+                TempData["SuccessMessage"] = "Event updated.";
                 return RedirectToAction("Events");
             }
 
-            ModelState.AddModelError(string.Empty, "Failed to update event.");
-            return View();
+            var body = await response.Content.ReadAsStringAsync();
+            TempData["ErrorMessage"] = ReadMessage(body) ?? $"Could not update event (API {(int)response.StatusCode}).";
+            return RedirectToAction("EditEvent", new { id });
         }
 
-        // Allow both GET and POST so your delete link works instantly without form wrapping
-        [HttpGet, HttpPost]
+        [HttpPost]
         public async Task<IActionResult> DeleteEvent(int id)
         {
             var redirectResult = RedirectIfNotOrganiser();
             if (redirectResult != null) return redirectResult;
 
-            var token = HttpContext.Session.GetString("JWToken");
-            if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
+            var client = _apiService.CreateClient();
+            var response = await client.DeleteAsync($"api/events/{id}");
 
-            try
-            {
-                var client = _apiService.CreateClient();
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-                var response = await client.DeleteAsync($"api/events/{id}");
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    TempData["SuccessMessage"] = "Event deleted successfully.";
-                }
-                else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    TempData["ErrorMessage"] = "Event not found. It may have already been deleted.";
-                }
-                else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                {
-                    TempData["ErrorMessage"] = "You do not have permission to delete this event.";
-                }
-                else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                {
-                    return RedirectToAction("Login", "Account");
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    TempData["ErrorMessage"] = $"Failed to delete event: {errorContent}";
-                }
-            }
-            catch (Exception ex)
-            {
-                TempData["ErrorMessage"] = $"An error occurred while deleting the event: {ex.Message}";
-            }
+            if (response.IsSuccessStatusCode)
+                TempData["SuccessMessage"] = "Event deleted.";
+            else
+                TempData["ErrorMessage"] = "Could not delete that event.";
 
             return RedirectToAction("Events");
         }
@@ -295,15 +206,8 @@ namespace RaceDay_EventMS.Web.Controllers
             if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
-
-            // Fetch events so the dropdown populates
-            var eventsResponse = await client.GetAsync("api/events");
-            ViewBag.EventsJson = eventsResponse.IsSuccessStatusCode ? await eventsResponse.Content.ReadAsStringAsync() : "[]";
-
-            // Fetch categories
-            var catResponse = await client.GetAsync("api/categories");
-            ViewBag.CategoriesJson = catResponse.IsSuccessStatusCode ? await catResponse.Content.ReadAsStringAsync() : "[]";
-
+            ViewBag.EventsJson = await GetMyEventsJson(client);
+            ViewBag.CategoriesJson = await GetJson(client, "api/categories");
             return View();
         }
 
@@ -311,24 +215,22 @@ namespace RaceDay_EventMS.Web.Controllers
         public async Task<IActionResult> AddCategory(int eventId, string categoryName, decimal distanceKm, decimal entryFee, int maxParticipants)
         {
             var redirectResult = RedirectIfNotOrganiser();
-            if (redirectResult != null) return RedirectToAction("Categories");
-
-            var token = HttpContext.Session.GetString("JWToken");
-            if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
+            if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await client.PostAsJsonAsync("api/categories",
+                new { eventId, categoryName, distanceKm, entryFee, maxParticipants });
 
-            var categoryData = new
+            if (response.IsSuccessStatusCode)
             {
-                eventId,
-                categoryName,
-                distanceKm,
-                entryFee,
-                maxParticipants
-            };
+                TempData["SuccessMessage"] = "Category added.";
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                TempData["ErrorMessage"] = ReadMessage(body) ?? $"Could not add category (API {(int)response.StatusCode}).";
+            }
 
-            var response = await client.PostAsJsonAsync("api/categories", categoryData);
             return RedirectToAction("Categories");
         }
 
@@ -338,11 +240,8 @@ namespace RaceDay_EventMS.Web.Controllers
             if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
-            var response = await client.GetAsync("api/enrolments");
-
-            if (response.IsSuccessStatusCode)
-                ViewBag.EnrolmentsJson = await response.Content.ReadAsStringAsync();
-
+            ViewBag.EventsJson = await GetMyEventsJson(client);
+            ViewBag.EnrolmentsJson = await GetJson(client, "api/enrolments");
             return View();
         }
 
@@ -352,47 +251,45 @@ namespace RaceDay_EventMS.Web.Controllers
             if (redirectResult != null) return redirectResult;
 
             var client = _apiService.CreateClient();
-            var token = HttpContext.Session.GetString("JWToken");
-            if (!string.IsNullOrEmpty(token))
-            {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            }
-
-            // Fetch events for the event dropdown selector
-            var eventsResponse = await client.GetAsync("api/events");
-            ViewBag.EventsJson = eventsResponse.IsSuccessStatusCode
-                ? await eventsResponse.Content.ReadAsStringAsync()
-                : "[]";
-
-            // Fetch enrolments for results entry
-            var enrolResponse = await client.GetAsync("api/enrolments");
-            ViewBag.EnrolmentsJson = enrolResponse.IsSuccessStatusCode
-                ? await enrolResponse.Content.ReadAsStringAsync()
-                : "[]";
-
+            ViewBag.EventsJson = await GetMyEventsJson(client);
+            ViewBag.EnrolmentsJson = await GetJson(client, "api/enrolments");
+            ViewBag.ResultsJson = await GetJson(client, "api/results");
             return View();
         }
 
         [HttpPost]
-        public async Task<IActionResult> SubmitResult(int enrolmentId, int finishTimeSeconds, int finishingPosition)
+        public async Task<IActionResult> SubmitResult(int enrolmentId, string finishTimeStr, int finishingPosition)
         {
             var redirectResult = RedirectIfNotOrganiser();
-            if (redirectResult != null) return RedirectToAction("Results");
+            if (redirectResult != null) return redirectResult;
 
-            var token = HttpContext.Session.GetString("JWToken");
-            if (string.IsNullOrEmpty(token)) return RedirectToAction("Login", "Account");
+            // expects HH:MM:SS
+            var parts = (finishTimeStr ?? "").Split(':');
+            if (parts.Length != 3
+                || !int.TryParse(parts[0], out int h)
+                || !int.TryParse(parts[1], out int m)
+                || !int.TryParse(parts[2], out int s))
+            {
+                TempData["ErrorMessage"] = "Finish time must look like 00:45:30 (HH:MM:SS).";
+                return RedirectToAction("Results");
+            }
+
+            int finishTimeSeconds = h * 3600 + m * 60 + s;
 
             var client = _apiService.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await client.PostAsJsonAsync("api/results",
+                new { enrolmentId, finishTimeSeconds, finishingPosition });
 
-            var resultData = new
+            if (response.IsSuccessStatusCode)
             {
-                enrolmentId,
-                finishTimeSeconds,
-                finishingPosition
-            };
+                TempData["SuccessMessage"] = "Result saved.";
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                TempData["ErrorMessage"] = ReadMessage(body) ?? $"Could not save result (API {(int)response.StatusCode}).";
+            }
 
-            var response = await client.PostAsJsonAsync("api/results", resultData);
             return RedirectToAction("Results");
         }
     }

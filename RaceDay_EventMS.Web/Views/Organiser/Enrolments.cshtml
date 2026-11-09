@@ -1,8 +1,82 @@
 ﻿@{
     ViewData["Title"] = "Manage Enrolments";
+    var eventsJson = ViewBag.EventsJson as string;
+    var enrolmentsJson = ViewBag.EnrolmentsJson as string;
 }
+
 <div class="container mt-4">
     <h2>👥 Participant Enrolments</h2>
     <hr />
-    <p class="text-muted">Review all participant enrolments across your events here.</p>
+
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+            <label for="eventFilter" class="form-label fw-bold">Filter by event</label>
+            <select id="eventFilter" class="form-select">
+                <option value="">All my events</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Event</th>
+                            <th>Category</th>
+                            <th>Participant</th>
+                            <th>Enrolled on</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enrolmentsBody"></tbody>
+                </table>
+            </div>
+            <p id="none" class="text-muted d-none mb-0">No enrolments to show.</p>
+        </div>
+    </div>
 </div>
+
+@section Scripts {
+    <script>
+        const events = @Html.Raw(string.IsNullOrWhiteSpace(eventsJson) ? "[]" : eventsJson);
+        const enrolments = @Html.Raw(string.IsNullOrWhiteSpace(enrolmentsJson) ? "[]" : enrolmentsJson);
+
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        const badge = s => s === 'Completed' ? 'bg-success' : s === 'Awaiting Results' ? 'bg-warning text-dark' : 'bg-primary';
+
+        const filter = document.getElementById('eventFilter');
+        const myIds = new Set(events.map(e => e.eventId ?? e.EventId));
+        events.forEach(ev => {
+            const opt = document.createElement('option');
+            opt.value = ev.eventId ?? ev.EventId;
+            opt.textContent = ev.eventName ?? ev.EventName ?? 'Untitled';
+            filter.appendChild(opt);
+        });
+
+        const tbody = document.getElementById('enrolmentsBody');
+
+        function render() {
+            const chosen = filter.value;
+            const rows = enrolments.filter(e => myIds.has(e.eventId) && (!chosen || e.eventId == chosen));
+            document.getElementById('none').classList.toggle('d-none', rows.length > 0);
+
+            tbody.innerHTML = rows.map(en => {
+                const d = new Date(en.enrolmentDate);
+                return `<tr>
+                    <td>${esc(en.eventName)}</td>
+                    <td>${esc(en.categoryName)}</td>
+                    <td>${esc(en.participantName)}</td>
+                    <td>${isNaN(d) ? 'N/A' : esc(d.toLocaleString())}</td>
+                    <td><span class="badge ${badge(en.status)}">${esc(en.status)}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        filter.addEventListener('change', render);
+        render();
+    </script>
+}

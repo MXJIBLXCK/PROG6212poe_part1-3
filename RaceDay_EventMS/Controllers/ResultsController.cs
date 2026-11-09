@@ -8,7 +8,7 @@ namespace RaceDay_EventMS.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Requires authentication for all result endpoints
+    [Authorize]
     public class ResultsController : ControllerBase
     {
         private readonly RaceDayDbContext _context;
@@ -18,61 +18,104 @@ namespace RaceDay_EventMS.Controllers
             _context = context;
         }
 
-        // GET: api/Results (Authenticated users can view all results)
-        /// <summary>
-        /// Retrieves all event results.
-        /// To access this endpoint, the user must be authenticated.
-        /// </summary>
+        // GET: api/Results (any logged-in user)
         [HttpGet]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<ActionResult<IEnumerable<Result>>> GetResults()
+        public async Task<IActionResult> GetResults()
         {
-            return await _context.Results
-                .Include(r => r.Enrolment)
-                    .ThenInclude(e => e!.Participant)
-                .Include(r => r.Enrolment)
-                    .ThenInclude(e => e!.Category)
-                        .ThenInclude(c => c!.Event)
+            var results = await _context.Results
+                .Select(r => new
+                {
+                    enrolmentId = r.EnrolmentId,
+                    participantName = r.Enrolment!.Participant!.Email,
+                    categoryName = r.Enrolment!.Category!.CategoryName,
+                    eventId = r.Enrolment!.Category!.EventId,
+                    eventName = r.Enrolment!.Category!.Event!.EventName,
+                    finishTimeSeconds = r.FinishTimeSeconds,
+                    finishingPosition = r.FinishingPosition
+                })
                 .ToListAsync();
+
+            return Ok(results);
         }
 
-        // GET: api/Results/5 (View result by EnrolmentId)
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Result>> GetResult(int id)
+        // GET: api/Results/5 (by enrolment id)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetResult(int id)
         {
             var result = await _context.Results
-                .Include(r => r.Enrolment)
-                    .ThenInclude(e => e!.Participant)
-                .Include(r => r.Enrolment)
-                    .ThenInclude(e => e!.Category)
-                        .ThenInclude(c => c!.Event)
-                .FirstOrDefaultAsync(r => r.EnrolmentId == id);
+                .Where(r => r.EnrolmentId == id)
+                .Select(r => new
+                {
+                    enrolmentId = r.EnrolmentId,
+                    participantName = r.Enrolment!.Participant!.Email,
+                    categoryName = r.Enrolment!.Category!.CategoryName,
+                    eventId = r.Enrolment!.Category!.EventId,
+                    finishTimeSeconds = r.FinishTimeSeconds,
+                    finishingPosition = r.FinishingPosition
+                })
+                .FirstOrDefaultAsync();
 
-            if (result == null)
-            {
-                return NotFound();
-            }
-
-            return result;
+            if (result == null) return NotFound();
+            return Ok(result);
         }
 
-        // POST: api/Results (Only Organisers can capture finish times and positions)
+        // GET: api/Results/my (participant's own race history)
+        [HttpGet("my")]
+        [Authorize(Roles = "Participant")]
+        public async Task<IActionResult> GetMyResults()
+        {
+            int.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out int userId);
+
+            var list = await _context.Results
+                .Where(r => r.Enrolment!.ParticipantId == userId)
+                .Select(r => new
+                {
+                    eventName = r.Enrolment!.Category!.Event!.EventName,
+                    eventDate = r.Enrolment!.Category!.Event!.EventDate,
+                    categoryName = r.Enrolment!.Category!.CategoryName,
+                    finishTimeSeconds = r.FinishTimeSeconds,
+                    finishingPosition = r.FinishingPosition,
+                    totalFinishers = _context.Results.Count(x => x.Enrolment!.CategoryId == r.Enrolment!.CategoryId)
+                })
+                .OrderByDescending(x => x.eventDate)
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
+        // POST: api/Results (organisers only)
         [HttpPost]
         [Authorize(Roles = "Organiser")]
-        public async Task<ActionResult<Result>> PostResult(Result result)
+        public async Task<IActionResult> PostResult([FromBody] ResultDto dto)
         {
-            // Verify that the enrolment exists
-            var enrolmentExists = await _context.Enrolments.AnyAsync(e => e.EnrolmentId == result.EnrolmentId);
-            if (!enrolmentExists)
+            if (!await _context.Enrolments.AnyAsync(e => e.EnrolmentId == dto.EnrolmentId))
+                return BadRequest(new { message = "That enrolment does not exist." });
+
+            if (await _context.Results.AnyAsync(r => r.EnrolmentId == dto.EnrolmentId))
+                return BadRequest(new { message = "A result was already captured for this participant." });
+
+            if (dto.FinishTimeSeconds <= 0 || dto.FinishingPosition <= 0)
+                return BadRequest(new { message = "Finish time and position must be greater than zero." });
+
+            var result = new Result
             {
-                return BadRequest(new { message = "Associated Enrolment ID does not exist." });
-            }
+                EnrolmentId = dto.EnrolmentId,
+                FinishTimeSeconds = dto.FinishTimeSeconds,
+                FinishingPosition = dto.FinishingPosition
+            };
 
             _context.Results.Add(result);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetResult), new { id = result.EnrolmentId }, result);
+            return CreatedAtAction(nameof(GetResult), new { id = result.EnrolmentId },
+                new { enrolmentId = result.EnrolmentId });
         }
+    }
+
+    public class ResultDto
+    {
+        public int EnrolmentId { get; set; }
+        public int FinishTimeSeconds { get; set; }
+        public int FinishingPosition { get; set; }
     }
 }
