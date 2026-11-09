@@ -31,12 +31,13 @@ namespace RaceDay_EventMS.Web.Controllers
                 using var doc = JsonDocument.Parse(content);
                 var root = doc.RootElement;
 
-                // Adjust property names based on your Part 2 API auth response JSON structure
                 var token = root.GetProperty("token").GetString();
                 var role = root.GetProperty("role").GetString();
+                var userId = root.GetProperty("userId").GetInt32();
 
                 HttpContext.Session.SetString("JWToken", token ?? "");
                 HttpContext.Session.SetString("UserRole", role ?? "");
+                HttpContext.Session.SetString("UserId", userId.ToString());
                 HttpContext.Session.SetString("UserEmail", model.Email);
 
                 return RedirectToAction("Index", "Home");

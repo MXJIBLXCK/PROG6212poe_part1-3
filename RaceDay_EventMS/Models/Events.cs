@@ -9,9 +9,8 @@ namespace RaceDay_EventMS.Models
         public int EventId { get; set; }
 
         [Required, MaxLength(150)]
-        public string Title { get; set; } = string.Empty;
+        public string EventName { get; set; } = string.Empty;
 
-        [Required]
         public string Description { get; set; } = string.Empty;
 
         [Required]
@@ -21,7 +20,9 @@ namespace RaceDay_EventMS.Models
         public string Location { get; set; } = string.Empty;
 
         [Required, MaxLength(50)]
-        public string EventType { get; set; } = string.Empty; // "Run", "Walk", "Cycle"
+        public string EventType { get; set; } = string.Empty; // Run, Walk, Cycle
+
+        public string? BannerUrl { get; set; }
 
         [Required]
         public int OrganiserId { get; set; }

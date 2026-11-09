@@ -1,25 +1,54 @@
-version: '3.4'
+version: '3.8'
 
 services:
+  sql-server:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "YourSecurePassword123!"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "YourSecurePassword123!", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   raceday.api:
     image: raceday.api
     build:
       context: ./RaceDay_EventMS
       dockerfile: Dockerfile
+    container_name: raceday-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=RaceDayDb;User Id=sa;Password=YourSecurePassword123!;Encrypt=false;
     ports:
       - "7105:8080"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      sql-server:
+        condition: service_healthy
+    networks:
+      - raceday-network
 
   raceday.web:
     image: raceday.web
     build:
       context: ./RaceDay_EventMS.Web
       dockerfile: Dockerfile
+    container_name: raceday-web
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ApiSettings__BaseUrl=http://raceday-api:8080/
     ports:
       - "5109:8080"
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ApiSettings__BaseUrl=http://raceday.api:8080/
     depends_on:
-      - raceday.api
+      - raceday-api
+    networks:
+      - raceday-network
+
+networks:
+  raceday-network:
+    driver: bridge

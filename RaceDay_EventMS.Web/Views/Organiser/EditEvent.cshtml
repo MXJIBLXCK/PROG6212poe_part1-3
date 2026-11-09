@@ -1,0 +1,82 @@
+@{
+    ViewData["Title"] = "Edit Event";
+}
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-7">
+        <div class="card shadow">
+            <div class="card-body">
+                <h2 class="mb-4">Edit Race Event</h2>
+
+                <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+
+                <form id="editEventForm" method="post" enctype="multipart/form-data">
+                    <input type="hidden" id="eventId" name="id" />
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Event Title</label>
+                        <input type="text" id="title" name="title" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea id="description" name="description" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Event Date & Time</label>
+                        <input type="datetime-local" id="date" name="date" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Location</label>
+                        <input type="text" id="location" name="location" class="form-control" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="eventType" class="form-label">Event Type</label>
+                        <select id="eventType" name="eventType" class="form-control" required>
+                            <option value="Run">Run</option>
+                            <option value="Walk">Walk</option>
+                            <option value="Cycle">Cycle</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="bannerFile" class="form-label">Event Banner Image</label>
+                        <input type="file" id="bannerFile" name="bannerFile" class="form-control" accept="image/*" />
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a asp-action="Events" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Update Event</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const eventJson = '@Html.Raw(ViewBag.EventJson ?? "{}")';
+        if (eventJson && eventJson !== "{}") {
+            try {
+                const event = JSON.parse(eventJson);
+                document.getElementById('eventId').value = event.eventId || event.EventId;
+                document.getElementById('title').value = event.title || event.Title || '';
+                document.getElementById('description').value = event.description || event.Description || '';
+                document.getElementById('location').value = event.location || event.Location || '';
+                document.getElementById('eventType').value = event.eventType || event.EventType || 'Run';
+                
+                if (event.eventDate || event.EventDate) {
+                    const dateStr = event.eventDate || event.EventDate;
+                    const date = new Date(dateStr);
+                    document.getElementById('date').value = date.toISOString().slice(0, 16);
+                }
+            } catch (err) {
+                console.error("Error loading event:", err);
+            }
+        }
+    </script>
+}

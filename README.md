@@ -56,6 +56,12 @@ Ensure your connection string is properly configured in `appsettings.json` (or u
 
     dotnet test
 
+### Running Locally
+
+    This will start:
+    - **API**: http://localhost:7105
+    - **Web Application**: http://localhost:5109
+
 Project Structure
 
     RaceDay_EventMS/ - Main ASP.NET Core Web API project (Controllers, Models, Data context).
@@ -74,3 +80,108 @@ Video Presentation
     Part 1 Walkthrough: Watch on YouTube
 
     Part 2 System & Backend Walkthrough:https://youtu.be/2sOEjsGWI7Y
+
+---
+
+## Architecture
+
+### API (RaceDay_EventMS)
+- RESTful API endpoints
+- JWT authentication
+- Role-based authorization (Organiser/Participant)
+- Entity Framework Core ORM
+- Azure Blob Storage integration
+
+### Web Application (RaceDay_EventMS.Web)
+- MVC architecture with Razor Views
+- Session-based authentication
+- Bootstrap 5 UI framework
+- Responsive design
+- Client-side validation
+
+## UI Design
+
+The application follows RaceDay brand guidelines with:
+- **Sporting Theme**: Energetic, modern design reflecting athletic events
+- **Colour Scheme**: Professional blues, greens, and accents
+- **Accessibility**: WCAG 2.1 compliant
+- **Responsiveness**: Mobile-first Bootstrap 5 framework
+- **Status Indicators**: Colour-coded enrolment and result statuses
+
+## Environment Configuration
+
+### API (appsettings.json)
+
+### Web App (appsettings.json)
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login user
+
+### Events
+- `GET /api/events` - Get all events
+- `GET /api/events/{id}` - Get event details
+- `POST /api/events` - Create event (Organiser only)
+- `PUT /api/events/{id}` - Update event (Organiser only)
+- `DELETE /api/events/{id}` - Delete event (Organiser only)
+
+### Categories
+- `GET /api/categories` - Get all categories
+- `POST /api/categories` - Add category to event
+
+### Enrolments
+- `GET /api/enrolments` - Get all enrolments
+- `POST /api/categories/{categoryId}/enrolments` - Enrol in category
+- `DELETE /api/enrolments/{id}` - Cancel enrolment
+
+### Results
+- `GET /api/categories/{categoryId}/results` - Get leaderboard
+- `POST /api/categories/{categoryId}/results` - Submit result
+
+## Docker Configuration
+
+### API Dockerfile
+Multi-stage build for optimized image size:
+1. Build stage: Compiles application
+2. Runtime stage: Runs compiled application
+
+### Web App Dockerfile
+Similar multi-stage build structure
+
+### Docker Compose
+Orchestrates both API and Web services with proper networking and port mapping.
+
+**Run with single command**:
+
+---
+
+## UI/UX Guidelines
+
+### Consistent Design
+- Unified colour palette across all pages
+- Bootstrap 5 framework for responsive layouts
+- Consistent typography and spacing
+
+### Error Handling
+- User-friendly error messages
+- Graceful degradation
+- Toast notifications for feedback
+
+### Navigation
+- Role-based menu items
+- Breadcrumb navigation
+- Clear action buttons
+
+### Accessibility
+- Alt text for images
+- ARIA labels for screen readers
+- Keyboard navigation support
+- High contrast text
+
+## Contributing
+Please follow the existing code structure and ensure all new features include proper error handling and validation.
+
+## License
+Internal Use Only

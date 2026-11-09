@@ -13,8 +13,8 @@
 
                 <form id="createEventForm">
                     <div class="mb-3">
-                        <label for="title" class="form-label">Event Title</label>
-                        <input type="text" id="title" name="title" class="form-control" required />
+                        <label for="eventName" class="form-label">Event Title</label>
+                        <input type="text" id="eventName" name="eventName" class="form-control" required />
                     </div>
 
                     <div class="mb-3">
@@ -74,7 +74,7 @@
                 submitBtn.textContent = 'Creating...';
 
                 const formData = new FormData();
-                formData.append('title', document.getElementById('title').value);
+                formData.append('eventName', document.getElementById('eventName').value);
                 formData.append('description', document.getElementById('description').value);
                 formData.append('date', document.getElementById('date').value);
                 formData.append('location', document.getElementById('location').value);
