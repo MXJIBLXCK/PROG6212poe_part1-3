@@ -1,20 +1,27 @@
-# RaceDay - Event Management System (POE Part 2)
+# RaceDay - Event Management System
 
 **Course Code:** PROG6212  
-**Portfolio of Evidence (POE) - Part 2**
+**Portfolio of Evidence (POE)**
+
+**Youtube link:** https://youtu.be/eG07HlSwstQ
 
 ## Overview
-RaceDay is a secure, robust backend Web API built for the South African road running, walking, and cycling community. Developed using **.NET 8** and **Entity Framework Core**, it provides a scalable architecture for Event Organisers to publish events, manage categories, and record results, while allowing Participants to browse events and manage race enrolments securely.
+RaceDay EventMS is a robust, multi-tier web application designed for organizing, managing, and tracking endurance racing events (Running, Cycling, Trail, and Triathlons). The system is split into a secure backend RESTful Web API and a responsive ASP.NET Core MVC frontend interface, backed by a Microsoft SQL Server database.
 
 ---
 
 ## Tech Stack & Architecture
-- **Framework:** ASP.NET Core 8 Web API
-- **Database & ORM:** SQL Server / LocalDB with Entity Framework Core 8
-- **Authentication & Security:** JWT (JSON Web Tokens) with Role-Based Access Control (RBAC)
-- **Testing:** xUnit testing framework with EF Core InMemory database provider
-- **CI/CD:** Automated GitHub Actions workflows for documentation and build validation
+System Architecture & Tech Stack
 
+    Backend: ASP.NET Core Web API (Port 5059 / Port 5109 configuration)
+
+    Frontend: ASP.NET Core MVC Web Application
+
+    Database: Microsoft SQL Server Express (LabVM204993\SQLEXPRESS, RaceDayDB)
+
+    Authentication: JWT (JSON Web Tokens) secured session storage (JWToken, UserId, UserRole)
+
+    Key Features: Organiser event CRUD operations, category mapping, participant enrolment tracking, and official race results leaderboard entry.
 ---
 
 ## Core System Roles & Permissions
@@ -30,37 +37,32 @@ RaceDay is a secure, robust backend Web API built for the South African road run
 - Microsoft SQL Server 2019/2022 or LocalDB
 - SQL Server Management Studio (SSMS) or Azure Data Studio
 
-### 2. Configuration (`appsettings.json`)
-Ensure your connection string is properly configured in `appsettings.json` (or use `appsettings.Example.json` as a template):
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=RaceDayDb;Trusted_Connection=True;MultipleActiveResultSets=true"
-  },
-  "JwtSettings": {
-    "Secret": "YOUR_SUPER_SECRET_KEY_AT_LEAST_32_BYTES_LONG",
-    "Issuer": "RaceDayAPI",
-    "Audience": "RaceDayUsers"
-  }
-}
-```
-3. Run the API & Tests
+### 2. How to Run the Project
 
-    To run the API: Open your terminal in the solution folder and run:
-    Bash
+To run the system locally, open two separate Developer PowerShell terminals and follow these steps:
+Terminal 1: Start the Backend API
 
-    dotnet run --project RaceDay_EventMS
+    Navigate to the API project directory:
+    PowerShell
 
-    To run the unit tests: Run the xUnit test suite with:
-    Bash
+    cd RaceDay_EventMS
 
-    dotnet test
+    Start the API server:
 
-### Running Locally
+    dotnet run
 
-    This will start:
-    - **API**: http://localhost:7105
-    - **Web Application**: http://localhost:5109
+Terminal 2: Start the Web MVC Frontend
+
+    Navigate to the Web project directory:
+    PowerShell
+
+    cd RaceDay_EventMS.Web
+
+    Start the web application:
+
+    dotnet run
+
+    Copy the running localhost URL (http://localhost:5109 or **http://localhost:5090** as indicated in your terminal output), paste it into your web browser, and log in with your organiser account to begin managing events.
 
 Project Structure
 
